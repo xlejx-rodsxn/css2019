@@ -1,9 +1,13 @@
 extensions [ gis ]
 globals [ bradford ]
 
+
+patches-own [y]
+
 to setup
   clear-all
-  ask patches [set pcolor white]
+  ask patches [set pcolor white
+  set y 0 ]
   set bradford gis:load-dataset "Bradford_city2.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
@@ -49,6 +53,15 @@ to new_file ; http://geospatialcss.blogspot.com/2015/10/tutorial-on-using-and-ex
   file-print "ID,CARRIBEAN"
   file-close
 end
+
+to map_patches
+  gis:apply-coverage bradford var y  ; no: it would report the property for all of the patches
+end
+
+to map_patches_agentset
+  ask patches gis:intersecting bradford [set y var]  ; no, seems does the same of gis:apply-coverage reporting the property-name
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 291
@@ -119,7 +132,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-7
+4
 
 MONITOR
 45
@@ -173,6 +186,51 @@ BUTTON
 77
 new_file
 new_file
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+892
+91
+997
+124
+NIL
+map_patches
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+47
+448
+164
+493
+sum_y
+sum [y] of patches with [y >= 0]
+2
+1
+11
+
+BUTTON
+888
+153
+1050
+186
+NIL
+map_patches_agentset
 NIL
 1
 T
