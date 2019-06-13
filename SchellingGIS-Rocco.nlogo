@@ -18,43 +18,14 @@ end
 to display-countries
   gis:set-drawing-color black
   gis:draw bradford 1
-;  if label-countries
-;  [ foreach gis:feature-list-of countries-dataset [ vector-feature ->
-;      let centroid gis:location-of gis:centroid-of vector-feature
-;      ; centroid will be an empty list if it lies outside the bounds
-;      ; of the current NetLogo world, as defined by our current GIS
-;      ; coordinate transformation
-;      if not empty? centroid
-;      [ create-country-labels 1
-;        [ set xcor item 0 centroid
-;          set ycor item 1 centroid
-;          set size 0
-;          set label gis:property-value vector-feature "CNTRY_NAME"
-;        ]
-;      ]
-;    ]
-;  ]
 end
 
-
-;to bla [n]
-;  let x gis:location-of gis:centroid-of item n gis:feature-list-of bradford
-;  crt 1 [ setxy item 0 x item 1 x]
-; end
 
 to color-shape
   foreach gis:feature-list-of bradford [ x ->
     gis:set-drawing-color scale-color red (gis:property-value x var) gis:property-maximum bradford var  1.0
     gis:fill x 0
 
-  ]
-end
-
-
-to color-lenght
-  foreach gis:feature-list-of bradford [x ->
-    gis:set-drawing-color (gis:property-value x "ST_LENGTHS")
-    gis:fill x 0
   ]
 end
 
@@ -66,16 +37,27 @@ to fraction
   ]
 end
 
+to color-lenght
+  foreach gis:feature-list-of bradford [x ->
+    gis:set-drawing-color (gis:property-value x "ST_LENGTHS")
+    gis:fill x 0
+  ]
+end
 
+to new_file ; http://geospatialcss.blogspot.com/2015/10/tutorial-on-using-and-exporting-gis.html
+ file-open "result.txt"
+  file-print "ID,CARRIBEAN"
+  file-close
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-246
-23
-879
-657
+291
+12
+854
+576
 -1
 -1
-18.94
+16.82
 1
 10
 1
@@ -137,7 +119,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-5
+7
 
 MONITOR
 45
@@ -174,6 +156,23 @@ BUTTON
 239
 NIL
 fraction
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+1011
+44
+1089
+77
+new_file
+new_file
 NIL
 1
 T
