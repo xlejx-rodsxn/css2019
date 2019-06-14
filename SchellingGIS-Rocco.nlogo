@@ -48,13 +48,6 @@ to fraction
   ]
 end
 
-to color-lenght
-  foreach gis:feature-list-of bradford [x ->
-    gis:set-drawing-color (gis:property-value x "ST_LENGTHS")
-    gis:fill x 0
-  ]
-end
-
 to new_file ; http://geospatialcss.blogspot.com/2015/10/tutorial-on-using-and-exporting-gis.html
  file-open "result.txt"
   file-print "ID,CARRIBEAN"
@@ -74,24 +67,20 @@ to centroid
   let center-point  gis:location-of gis:centroid-of x
     ask patch item 0 center-point item 1 center-point     ; to map centroid - polygon
     [
-    ;set pcolor blue * gis:property-value x "CARIBBEAN"   ; feature/behavior from shapefile to NetLogo's patch
       set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
       set y gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
-     ;  set q [5 5 5]
-     ; set plabel y set plabel-color black show plabel
-     ; set plabel pop set plabel-color black show plabel
-       set index  (( y / pop) / (sum [y] of patches with [ID != 0] / sum [pop] of patches with [ID != 0])) ; compute index: ((ethnic_neighborhood / population_neighborhood) / (ethnic_city / population_city))
-     ; set prop (y / pop)
-     ; set index (sum [prop] of patches / (count patches with [ID = 1]))
-       ;  set plabel precision index 2 set plabel-color black show plabel   ; reports index as label of centroid
-    ;  set plabel ID set plabel-color black show plabel
-     ; set pcolor  scale-color red index 1 0
-      set q replace-item 0 q gis:property-value x var
-      set plabel q set plabel-color black show plabel
-    ;  show q
-    ;  let lst02 replace-item 0 lst01 99
-   ; set plabel gis:property-value x "CARIBBEAN" set plabel-color black show plabel
+
+      ; next line computes index: ((ethnic_neighborhood / tot population_neighborhood) / (tot ethnic_city / tot population_city))
+      set index  (( y / pop) / (sum [y] of patches with [ID != 0] / sum [pop] of patches with [ID != 0]))
+
+      if show_neighborhood = "number" [set q replace-item 0 q gis:property-value x var]   ; number of ethnic group living in neighborhood
+      if show_neighborhood = "fraction" [ set q replace-item 0 q precision (y / pop) 2 ]    ; ethnic concentration in neighborhood
+      if show_neighborhood = "index" [ set q replace-item 0 q precision index 2 ]      ; ethnic segregation index in neighborhood
+      if show_neighborhood = "name" [ set q replace-item 0 q ID ]                  ; ID of neighborhood
+
+       set plabel q set plabel-color black show plabel
+
     ]
   ;  gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0   ; to map centroid -> polygon: call patches through the ID
                                                                                                                                   ;  (here max [list] to have a number)
@@ -146,9 +135,9 @@ NIL
 
 BUTTON
 60
-155
+285
 178
-189
+319
 NIL
 color-shape
 NIL
@@ -169,13 +158,13 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-5
+0
 
 MONITOR
 45
-369
+431
 206
-414
+476
 NIL
 gis:property-maximum bradford var
 17
@@ -183,27 +172,10 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-75
-256
-172
-289
-NIL
-color-lenght
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
 86
-206
+336
 160
-239
+369
 NIL
 fraction
 NIL
@@ -217,10 +189,10 @@ NIL
 1
 
 BUTTON
-1011
-44
-1089
-77
+995
+39
+1073
+72
 new_file
 new_file
 NIL
@@ -234,10 +206,10 @@ NIL
 1
 
 BUTTON
-892
-91
-997
-124
+876
+39
+981
+72
 NIL
 map_patches
 NIL
@@ -251,10 +223,10 @@ NIL
 1
 
 MONITOR
-47
-448
-164
-493
+51
+479
+168
+524
 sum_y
 sum [y] of patches with [y >= 0]
 2
@@ -262,10 +234,10 @@ sum [y] of patches with [y >= 0]
 11
 
 BUTTON
-888
-153
-1050
-186
+868
+84
+1030
+117
 NIL
 map_patches_agentset
 NIL
@@ -279,10 +251,10 @@ NIL
 1
 
 BUTTON
-930
-231
-1007
-264
+16
+159
+93
+192
 NIL
 centroid
 NIL
@@ -294,6 +266,16 @@ NIL
 NIL
 NIL
 1
+
+CHOOSER
+104
+154
+269
+199
+show_neighborhood
+show_neighborhood
+"name" "number" "fraction" "index"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
