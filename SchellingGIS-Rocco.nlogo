@@ -14,7 +14,7 @@ to setup
   clear-all
   ask patches [set pcolor white
   set y 0
-  set q [] ]
+  set q [0] ]
   set bradford gis:load-dataset "Bradford_city2.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
@@ -72,28 +72,28 @@ end
 to centroid
   foreach gis:feature-list-of bradford [x ->
   let center-point  gis:location-of gis:centroid-of x
-    ask patch item 0 center-point item 1 center-point
+    ask patch item 0 center-point item 1 center-point     ; to map centroid - polygon
     [
-    ;set pcolor blue * gis:property-value x "CARIBBEAN"
-      set ID gis:property-value x "LSOA11NM_1"
-      set y gis:property-value x var
-      set pop gis:property-value x "ALL11"
+    ;set pcolor blue * gis:property-value x "CARIBBEAN"   ; feature/behavior from shapefile to NetLogo's patch
+      set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
+      set y gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
+      set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
+     ;  set q [5 5 5]
      ; set plabel y set plabel-color black show plabel
      ; set plabel pop set plabel-color black show plabel
-       set index  (( y / pop) / (sum [y] of patches / sum [pop] of patches))
+       set index  (( y / pop) / (sum [y] of patches / sum [pop] of patches)) ; compute index: ((ethnic_neighborhood / population_neighborhood) / (ethnic_city / population_city))
      ; set prop (y / pop)
      ; set index (sum [prop] of patches / (count patches with [ID = 1]))
-       set plabel precision index 2 set plabel-color black show plabel
+       set plabel precision index 2 set plabel-color black show plabel   ; reports index as label of centroid
     ;  set plabel ID set plabel-color black show plabel
      ; set pcolor  scale-color red index 1 0
-      set q []
+      set q replace-item 0 q gis:property-value x var
+    ;  show q
+    ;  let lst02 replace-item 0 lst01 99
    ; set plabel gis:property-value x "CARIBBEAN" set plabel-color black show plabel
-
-
-
     ]
-   ; let toto max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"]
-    gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+  ;  gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0   ; to map centroid -> polygon: call patches through the ID
+                                                                                                                                  ;  (here max [list] to have a number)
     ; show [ID] of  patches with [ID = gis:property-value x "LSOA11NM_1"]
  ;   show max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"]
   ]
