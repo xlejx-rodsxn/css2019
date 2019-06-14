@@ -84,10 +84,11 @@ to centroid
        set index  (( y / pop) / (sum [y] of patches / sum [pop] of patches)) ; compute index: ((ethnic_neighborhood / population_neighborhood) / (ethnic_city / population_city))
      ; set prop (y / pop)
      ; set index (sum [prop] of patches / (count patches with [ID = 1]))
-       set plabel precision index 2 set plabel-color black show plabel   ; reports index as label of centroid
+       ;  set plabel precision index 2 set plabel-color black show plabel   ; reports index as label of centroid
     ;  set plabel ID set plabel-color black show plabel
      ; set pcolor  scale-color red index 1 0
       set q replace-item 0 q gis:property-value x var
+      set plabel q set plabel-color black show plabel
     ;  show q
     ;  let lst02 replace-item 0 lst01 99
    ; set plabel gis:property-value x "CARIBBEAN" set plabel-color black show plabel
