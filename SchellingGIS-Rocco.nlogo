@@ -4,7 +4,7 @@ globals [ bradford ]
 
 turtles-own [
 ID
-y
+eth-group
 pop
 concentration
 index]
@@ -52,11 +52,11 @@ to centroid
     create-turtles 1
     [ setxy item 0 center-point item 1 center-point
       set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
-      set y gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
+      set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
-      set index  precision (( y / pop) / (sum [y] of turtles / sum [pop] of turtles)) 2
+      set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
     ]
-   ; gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+ gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
   ]
 end
 @#$#@#$#@
@@ -129,7 +129,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-7
+0
 
 MONITOR
 35
