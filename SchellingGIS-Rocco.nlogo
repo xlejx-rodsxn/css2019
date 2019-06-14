@@ -2,25 +2,23 @@ extensions [ gis ]
 globals [ bradford ]
 
 
-patches-own [
+turtles-own [
 ID
 y
-q
-prop
-index
-pop]
+pop
+concentration
+index]
 
 to setup
   clear-all
-  ask patches [set pcolor white
-  set y 0
-  set q [0] ]
+  ask patches [set pcolor white]
   set bradford gis:load-dataset "Bradford_city2.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/LondonHMA.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
+  centroid
 end
 
 
@@ -48,44 +46,19 @@ to fraction
   ]
 end
 
-to new_file ; http://geospatialcss.blogspot.com/2015/10/tutorial-on-using-and-exporting-gis.html
- file-open "result.txt"
-  file-print "ID,CARRIBEAN"
-  file-close
-end
-
-to map_patches
-  gis:apply-coverage bradford var y  ; no: it would report the property for all of the patches
-end
-
-to map_patches_agentset
-  ask patches gis:intersecting bradford [set y var]  ; no, seems does the same of gis:apply-coverage reporting the property-name
-end
-
 to centroid
   foreach gis:feature-list-of bradford [x ->
   let center-point  gis:location-of gis:centroid-of x
-    ask patch item 0 center-point item 1 center-point     ; to map centroid - polygon
-    [
+    create-turtles 1
+    [ setxy item 0 center-point item 1 center-point
       set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
       set y gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
-
-      ; next line computes index: ((ethnic_neighborhood / tot population_neighborhood) / (tot ethnic_city / tot population_city))
-      set index  (( y / pop) / (sum [y] of patches with [ID != 0] / sum [pop] of patches with [ID != 0]))
-
-      if show_neighborhood = "number" [set q replace-item 0 q gis:property-value x var]   ; number of ethnic group living in neighborhood
-      if show_neighborhood = "fraction" [ set q replace-item 0 q precision (y / pop) 2 ]    ; ethnic concentration in neighborhood
-      if show_neighborhood = "index" [ set q replace-item 0 q precision index 2 ]      ; ethnic segregation index in neighborhood
-      if show_neighborhood = "name" [ set q replace-item 0 q ID ]                  ; ID of neighborhood
-
-       set plabel q set plabel-color black show plabel
-
+      set index  precision (( y / pop) / (sum [y] of turtles / sum [pop] of turtles)) 2
+      set shape "dot"
+      ifelse visualize [ set color scale-color green (y / pop) 1 0] [set color green]
     ]
-  ;  gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0   ; to map centroid -> polygon: call patches through the ID
-                                                                                                                                  ;  (here max [list] to have a number)
-    ; show [ID] of  patches with [ID = gis:property-value x "LSOA11NM_1"]
- ;   show max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"]
+   ; gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
   ]
 end
 @#$#@#$#@
@@ -134,10 +107,10 @@ NIL
 1
 
 BUTTON
-60
-285
-178
-319
+50
+300
+168
+334
 NIL
 color-shape
 NIL
@@ -158,13 +131,13 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-0
+7
 
 MONITOR
-45
-431
-206
-476
+35
+446
+196
+491
 NIL
 gis:property-maximum bradford var
 17
@@ -172,10 +145,10 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-86
-336
-160
-369
+76
+351
+150
+384
 NIL
 fraction
 NIL
@@ -188,94 +161,16 @@ NIL
 NIL
 1
 
-BUTTON
-995
-39
-1073
-72
-new_file
-new_file
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-876
-39
-981
-72
-NIL
-map_patches
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-MONITOR
-51
-479
-168
-524
-sum_y
-sum [y] of patches with [y >= 0]
-2
-1
-11
-
-BUTTON
-868
-84
-1030
-117
-NIL
-map_patches_agentset
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-16
-159
-93
-192
-NIL
-centroid
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-CHOOSER
-104
-154
-269
-199
-show_neighborhood
-show_neighborhood
-"name" "number" "fraction" "index"
+SWITCH
+30
+141
+133
+174
+visualize
+visualize
 0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
