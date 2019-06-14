@@ -2,12 +2,19 @@ extensions [ gis ]
 globals [ bradford ]
 
 
-patches-own [y]
+patches-own [
+ID
+y
+q
+prop
+index
+pop]
 
 to setup
   clear-all
   ask patches [set pcolor white
-  set y 0 ]
+  set y 0
+  set q [] ]
   set bradford gis:load-dataset "Bradford_city2.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
 ;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
@@ -62,6 +69,35 @@ to map_patches_agentset
   ask patches gis:intersecting bradford [set y var]  ; no, seems does the same of gis:apply-coverage reporting the property-name
 end
 
+to centroid
+  foreach gis:feature-list-of bradford [x ->
+  let center-point  gis:location-of gis:centroid-of x
+    ask patch item 0 center-point item 1 center-point
+    [
+    ;set pcolor blue * gis:property-value x "CARIBBEAN"
+      set ID gis:property-value x "LSOA11NM_1"
+      set y gis:property-value x var
+      set pop gis:property-value x "ALL11"
+     ; set plabel y set plabel-color black show plabel
+     ; set plabel pop set plabel-color black show plabel
+       set index  (( y / pop) / (sum [y] of patches / sum [pop] of patches))
+     ; set prop (y / pop)
+     ; set index (sum [prop] of patches / (count patches with [ID = 1]))
+       set plabel precision index 2 set plabel-color black show plabel
+    ;  set plabel ID set plabel-color black show plabel
+     ; set pcolor  scale-color red index 1 0
+      set q []
+   ; set plabel gis:property-value x "CARIBBEAN" set plabel-color black show plabel
+
+
+
+    ]
+   ; let toto max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"]
+    gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+    ; show [ID] of  patches with [ID = gis:property-value x "LSOA11NM_1"]
+ ;   show max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 291
@@ -132,7 +168,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-4
+5
 
 MONITOR
 45
@@ -231,6 +267,23 @@ BUTTON
 186
 NIL
 map_patches_agentset
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+930
+231
+1007
+264
+NIL
+centroid
 NIL
 1
 T
