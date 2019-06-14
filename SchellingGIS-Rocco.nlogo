@@ -81,7 +81,7 @@ to centroid
      ;  set q [5 5 5]
      ; set plabel y set plabel-color black show plabel
      ; set plabel pop set plabel-color black show plabel
-       set index  (( y / pop) / (sum [y] of patches / sum [pop] of patches)) ; compute index: ((ethnic_neighborhood / population_neighborhood) / (ethnic_city / population_city))
+       set index  (( y / pop) / (sum [y] of patches with [ID != 0] / sum [pop] of patches with [ID != 0])) ; compute index: ((ethnic_neighborhood / population_neighborhood) / (ethnic_city / population_city))
      ; set prop (y / pop)
      ; set index (sum [prop] of patches / (count patches with [ID = 1]))
        ;  set plabel precision index 2 set plabel-color black show plabel   ; reports index as label of centroid
