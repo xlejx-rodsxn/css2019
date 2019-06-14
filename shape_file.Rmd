@@ -1,0 +1,124 @@
+---
+output:
+    bookdown::pdf_document2:
+    toc: false
+    keep_tex: true
+    fig_caption: yes
+title:      "SchellingGIS"
+header-includes: 
+- \usepackage{float}
+- \usepackage{multirow}
+
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.lp="fig:")
+# install.packages("tinytex", repos = "https://cloud.r-project.org" )
+library(rgdal)
+library(foreign)
+library(shapefiles)
+library(tinytex)
+shape <- readOGR(dsn ="C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019",layer = "Bradford_city2")
+ attribute_dbf <- read.dbf("C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019/Bradford_city2.dbf")
+ shape_shx <- read.shx("C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019/Bradford_city2.shx")
+```
+
+Just gave a try on how to read shapefiles and understand what they are and how structured\
+Used the shapefile from Schelling in Washington DC by Yang Zhou: https://github.com/YangZhouCSS/Segregation
+
+* Package "rgdal"
+
+* Package "shapefiles"
+
+Here seems other tip and info: http://geog.uoregon.edu/bartlein/courses/geog495/lec07.html
+
+```{r check, include = TRUE}
+## shape = original shape file.shp used in Washington
+#getSlots(class(shape)) # show all components and characteristics
+#proj4string(shape) # content of #.prj file
+#summary(shape_shx)  # the coordinates on the .shx file
+ 
+#class(attribute_dbf) # types of attributes in the shapefile
+#summary(attribute_dbf) # summary of the characteristics for each vertex
+summary(shape)
+
+plot(shape$st_lengths)
+# plot(shape)
+#levels(shape) # levels for SOC variable used in Washington DC example: RED and BLUE
+head(shape) # first row of .shp file
+```
+
+# NetLogo, GIS and shapefiles:
+
+
+Basic Concepts NetLogo: 
+
+*	NetLogo: programmable modeling environment to build and run agent-based models. Basic programming language java, file extension .logo
+* Agents: virtual objects with attributes that can execute a procedure they are given and interact with other agents in a world. They can do something (commands procedure) or provide information on their state or that of others (reporters procedure). Macro phenomena observed in the simulation (e.g. spatial segregation) emerge as unintended consequence of the interaction of agents running their individual behavior (e.g. find a neighborhood that satisfies their preferences). There are 3 types of agents:
+  +	Turtles: agents that can move in the world
+  +	Patches: square piece of "ground" of the world
+  +	Links: links between turtles
+  +	Observer: the researcher that interacts with the agents
+
+A shapefile (.shp) matches vertices (points) distributed in space with their attributes. Each ID is a vertex with coordinates in space and a set of characteristics (i.e. "a shapefile contains geometry for all features"). A shapefile combines:
+
+*	.dbf file with the feature attributes in tabular format
+*	.shx file that indexes the geometry (provides the information necessary to distribute the vertices in space, i.e. a cartesian coordinate system)
+*	sometimes a .prj file (or other) that allows the projection, i.e. the process to match geometry information on where points are located with their attributes. Depending on the file  and software .prj could be not necessary and .shx comprises all information needed 
+
+As I understand, you could potentially build a shapefile yourselfs (e.g. in excel): at the core there is a matrix where each row corresponds to a vertex (ID), one column for the coordinates (.shx) and n columns for property values (.dbf). Once you have a shapefile instead, they can be read and worked out with R (e.g. package rgdal). Here seems there is good info: http://geog.uoregon.edu/bartlein/courses/geog495/lec07.html
+
+NetLogo allows to build agent-based models that implement shapefiles, by informing the model of how vertices are distributed in space (to build the map) and project the attributes to the vertex (provide information spatially distributed)
+
+What is needed (NetLogo download free):
+
+*	Extension gis
+*	Shape file(s)
+
+NetLogo can work with and combine different shapefiles that can be of 2 types:
+
+*	Raster GIS data (RasterDataset): a grid as Schelling typical model
+*	Vector GIS data (VectorDataset) (points, lines, and polygons)
+
+Move from GIS space to NetLogo space:
+
+1. Gis:load-dataset: to upload the .shp file
+2. The .shp file includes the projection: gis:set-world-envelope
+The .shp file doesn't include .prj: gis:load-coordinate-system + gis:set-world-envelope
+
+Modeling behavior and collect information in NetLogo GIS (see table below):
+
+*	VectorDataset (points, lines, polygons)
+*	Each VectorDataset (the original .shp file) is made up of VectorFeatures. Each VectorFeature is made up of 1 list of vertices (a matrix) organized so to become the point, the line or the polygon that the VectorFeature represents.
+*	A single VectorDataset can host different numbers of VectorFeatures, but only one type: the VectorDataset can comprise (a number of) points, lines or polygons, but NOT different types in the same VectorDataset (e.g. lines and points in the same VectorDataset). Therefore the .shp file should be arranged properly for this to work in NetLogo.
+*	The lists of a VectorFeature is so organized:
+  + Points: a list is made up of one vertex ??? one point, and all property values (characteristics) associated to it in a tabular form
+  + Lines: a list of the vertices defining the line ??? I assume 2 points and for each vertex the characteristics associated
+  +	Polygons: a list of those vertices functioning as rings (the angles) that form the polygon. The first and the last vertex are the same, since they close the figure. See Vocabulary GIS for how polygons are built
+  + NetLogo will project the property values of points, lines and polygons on the interface of the model. Agents interact with the information of the vertex in the list that corresponds to the spatial point they occupy at that moment. With polygons, the information is projected both to the rings (vertex) that form the polygon or to the patches that form the interior of the polygon (as example Washington DC below).
+  
+#BRADFORD
+
+You work on a list of vectorfeatures
+* gis:property-names vectordataet: to know the property-value in the vectordataset
+* to identify a specific neighborhood, make a list of one agent: gis:find-features VectorDataset property-name specified-value
+In Bandford gis: foreach gis:find-features bradford "LSOA11NM" "Bradford 017A" [x ->  gis:set-drawing-color red gis:fill x 0]
+  * Check if it can be a report
+
+\begin{table}[t!]
+\begin{tabular}{c | c | c | c | c}
+\hline
+\multirow{2}{*}{ $vectorvdataset_{1}$  } & $vectorfeature^{points}_{1}$ & $vertex^{1/xy}$ & $propertyvalue_{1}$ & $propertyvalue_{2}$ \\
+&  $...n+1$ & & $(variable_{1})$ & $(variable_{2})$   \\
+\hline
+\multirow{2}{*}{ $vectorvdataset_{2}$  } & $vectorfeature^{lines}_{1}$ & $vertex^{1a/xy}$ & $...$ & $...$ \\
+&  $...n+1$ & $vertex^{1b/xy}$ &   &     \\
+\hline
+\multirow{4}{*}{ $vectorvdataset_{3}$  } & $vectorfeature^{polygons}_{1}$  & $vertex^{1a/xy}$ & $...$ & $...$ \\
+&  $...n+1$ & $vertex^{1b/xy}$ &   &     \\
+& $(here triangle)$ & $vertex^{1c/xy}$ &   &     \\
+&   & $vertex^{1a/xy}$ &   &     \\
+\hline
+\end{tabular}
+\end{table}
