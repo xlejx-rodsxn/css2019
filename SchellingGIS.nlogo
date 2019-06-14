@@ -1,58 +1,48 @@
-extensions [ gis ]
-globals [ bradford ]
+extensions [ rnd gis ]
+globals [ bradford vars ]
+turtles-own [ id popdata totalpop ]
 
 to setup
   clear-all
   ask patches [set pcolor white]
   set bradford gis:load-dataset "London_Bradford_HMA/Bradford_city2.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/LondonHMA.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
+  set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+  foreach gis:feature-list-of bradford [ x ->
+    let centroid gis:location-of gis:centroid-of x
+    crt 1 [
+      setxy item 0 centroid item 1 centroid
+      set id gis:property-value x "LSOA11NM_1"
+      set popdata map [y -> gis:property-value x y] vars
+      set totalpop reduce + popdata
+    ]
+  ]
 end
 
-
-; Drawing polygon data from a shapefile, and optionally loading some
-; of the data into turtles, if label-countries is true
 to display-countries
   gis:set-drawing-color black
   gis:draw bradford 1
-;  if label-countries
-;  [ foreach gis:feature-list-of countries-dataset [ vector-feature ->
-;      let centroid gis:location-of gis:centroid-of vector-feature
-;      ; centroid will be an empty list if it lies outside the bounds
-;      ; of the current NetLogo world, as defined by our current GIS
-;      ; coordinate transformation
-;      if not empty? centroid
-;      [ create-country-labels 1
-;        [ set xcor item 0 centroid
-;          set ycor item 1 centroid
-;          set size 0
-;          set label gis:property-value vector-feature "CNTRY_NAME"
-;        ]
-;      ]
-;    ]
-;  ]
-end
-
-
-to bla [n]
-  let x gis:location-of gis:centroid-of item n gis:feature-list-of bradford
-  crt 1 [ setxy item 0 x item 1 x]
 end
 
 to color-shape
+  let vars-index position var vars
   foreach gis:feature-list-of bradford [ x ->
-    gis:set-drawing-color scale-color red (gis:property-value x var) gis:property-maximum bradford var 1.0
+    gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [id = (gis:property-value x "LSOA11NM_1")]) 1000 0
     gis:fill x 0 ]
+end
+
+to select-random-person
+  let district rnd:weighted-one-of turtles [totalpop]
+  ;; to continue ...
+  show district
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 246
 23
-774
-552
+879
+657
 -1
 -1
 18.94
@@ -93,10 +83,10 @@ NIL
 1
 
 BUTTON
-89
-99
-207
-133
+32
+143
+174
+177
 NIL
 color-shape
 NIL
@@ -117,7 +107,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-8
+0
 
 MONITOR
 53
