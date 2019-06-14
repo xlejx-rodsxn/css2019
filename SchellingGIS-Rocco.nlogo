@@ -55,8 +55,6 @@ to centroid
       set y gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( y / pop) / (sum [y] of turtles / sum [pop] of turtles)) 2
-      set shape "dot"
-      ifelse visualize [ set color scale-color green (y / pop) 1 0] [set color green]
     ]
    ; gis:set-drawing-color scale-color red max [index] of patches with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
   ]
@@ -160,17 +158,6 @@ NIL
 NIL
 NIL
 1
-
-SWITCH
-30
-141
-133
-174
-visualize
-visualize
-0
-1
--1000
 
 @#$#@#$#@
 ## WHAT IS IT?
