@@ -6,11 +6,12 @@ turtles-own [
 ID
 eth-group
 pop
-concentration
 index
 popdata
+concentration
 totalpop
 origin
+happy?
 ]
 
 to setup
@@ -31,7 +32,8 @@ to setup
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
       set popdata map [y -> gis:property-value x y] vars
-      set totalpop reduce + popdata ; same as pop, should be substitute in index
+      aggregate-data
+        ; same as pop, should be substitute in index
     ]
 ; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
   ]
@@ -51,39 +53,55 @@ to go
   update-turtles
 end
 
-to connect-turtles
-  ask one-of turtles [
-   ask one-of other turtles [ set origin [ID] of myself
-    set color yellow]
-  ]
+; to connect-turtles
+
+;   ask turtles [if item vars-index concentration < ethnic_threshold
+;   [set happy? false
+;    set color brown
+;  ask one-of other turtles [ set origin [ID] of myself
+;        set color [color] of myself]
+;   ]
+;   ]
+; end
+
+
+
+to aggregate-data
+  let vars-index position var vars
+   set totalpop reduce + popdata
+   set concentration map [y -> precision (y / totalpop) 2] popdata
+
 end
 
 
-; ID
+; CALL BEHAVIOR OF TURTLES FROM GIS
 to update-turtles
   foreach  gis:feature-list-of bradford [x ->
-    ask turtles with [ID = gis:property-value x "LSOA11NM_1"][
-    ;  let alternative one-of other turtles
+   ask turtles with [ID = gis:property-value x "LSOA11NM_1"][
+    let alternative one-of other turtles
       let vars-index position var vars
-    ;  ask alternative [set giver [ID] of myself]
-      if any? turtles with [origin = [ID] of myself]
+      set happy? item vars-index concentration >= ethnic_threshold
+    ;  ask alternative [set origin [ID] of myself]
+     if any? turtles with [origin = [ID] of myself]
      [
-        if 2 < 10 and item vars-index popdata != 0
-        [
-          set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-          ask turtles with [origin = [ID] of myself]
-          [ set color violet
-           set popdata replace-item vars-index popdata (item vars-index popdata + 1) ; they can change
-            set totalpop reduce + popdata
-          ]
-          set totalpop reduce + popdata
-        ]
-        ]
-      ]
-    ]
+        if item vars-index concentration < ethnic_threshold and item vars-index popdata != 0
+
+         [
+           set popdata replace-item vars-index popdata (item vars-index popdata - 1)
+           ask turtles with [origin = [ID] of myself]
+         [ set color violet
+            set popdata replace-item vars-index popdata (item vars-index popdata + 1) ; they can change
+            aggregate-data
+
+           ]
+           aggregate-data
+         ]
+         ]
+     ]
+     ]
 
 
-end
+ end
 
 ;; TO GO FASTER inst
 
@@ -167,13 +185,13 @@ NIL
 
 CHOOSER
 42
-85
+84
 189
-130
+129
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-4
+0
 
 MONITOR
 35
@@ -193,7 +211,7 @@ BUTTON
 232
 NIL
 go
-T
+NIL
 1
 T
 OBSERVER
@@ -219,6 +237,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+48
+254
+220
+287
+ethnic_threshold
+ethnic_threshold
+0
+1
+0.1
+0.1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
