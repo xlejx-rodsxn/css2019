@@ -1,5 +1,5 @@
 extensions [ gis ]
-globals [ bradford ]
+globals [ bradford vars]
 
 
 turtles-own [
@@ -7,18 +7,31 @@ ID
 eth-group
 pop
 concentration
-index]
+index
+popdata
+totalpop]
 
 to setup
   clear-all
   ask patches [set pcolor white]
   set bradford gis:load-dataset "Bradford_city2.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/BradfordHMA.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/Export_Output_2.shp"
-;  set bradford gis:load-dataset "London_Bradford_HMA/LondonHMA.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
-  centroid
+  set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+
+  foreach gis:feature-list-of bradford [x ->
+  let center-point  gis:location-of gis:centroid-of x
+    create-turtles 1
+    [ setxy item 0 center-point item 1 center-point
+      set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
+      set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
+      set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
+      set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
+      set popdata map [y -> gis:property-value x y] vars
+      set totalpop reduce + popdata ; same as pop, should be substitute in index
+    ]
+; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+  ]
 end
 
 
@@ -30,35 +43,62 @@ to display-countries
 end
 
 
-to color-shape
-  foreach gis:feature-list-of bradford [ x ->
-    gis:set-drawing-color scale-color red (gis:property-value x var) gis:property-maximum bradford var  1.0
-    gis:fill x 0
-
-  ]
+to go
+  update-turtles
 end
 
-to fraction
-  foreach gis:feature-list-of bradford [x ->
- ;  gis:set-drawing-color ((gis:property-value x var) / (gis:property-value x "ALLETHNIC1"))
-    gis:set-drawing-color scale-color red ((gis:property-value x var) / (gis:property-value x "ALL11")) 1 0
-    gis:fill x 0
-  ]
-end
 
-to centroid
-  foreach gis:feature-list-of bradford [x ->
-  let center-point  gis:location-of gis:centroid-of x
-    create-turtles 1
-    [ setxy item 0 center-point item 1 center-point
-      set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
-      set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
-      set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
-      set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
+
+; ID
+to update-turtles
+  foreach  gis:feature-list-of bradford [x ->
+    ask turtles with [ID = gis:property-value x "LSOA11NM_1"][
+      let alternative one-of other turtles
+      let vars-index position var vars
+      if 2 < 4
+        [ set popdata replace-item vars-index popdata (item vars-index popdata - 1)
+           ; ask alternative [set popdata replace-item var popdata (var + 1)]
+        ]
+      ]
     ]
- gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
-  ]
+
+
 end
+
+
+
+;; TO BE CLEANED UP
+
+; (item vars-index popdata / totalpop) < (item vars-index popdata) /  totalpop)
+
+; to color-shape
+ ;  foreach gis:feature-list-of bradford [ x ->
+   ;  gis:set-drawing-color scale-color red (gis:property-value x var) gis:property-maximum bradford var  1.0
+;     gis:fill x 0
+;  ]
+; end
+
+; to fraction
+;   foreach gis:feature-list-of bradford [x ->
+ ;  gis:set-drawing-color ((gis:property-value x var) / (gis:property-value x "ALLETHNIC1"))
+  ;   gis:set-drawing-color scale-color red ((gis:property-value x var) / (gis:property-value x "ALL11")) 1 0
+  ;   gis:fill x 0
+ ;  ]
+; end
+
+; to centroid
+;   foreach gis:feature-list-of bradford [x ->
+;   let center-point  gis:location-of gis:centroid-of x
+ ;    create-turtles 1
+ ;    [ setxy item 0 center-point item 1 center-point
+  ;     set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
+   ;    set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
+     ;  set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
+     ;  set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
+   ;  ]
+;  gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+ ;  ]
+; end
 @#$#@#$#@
 GRAPHICS-WINDOW
 291
@@ -104,23 +144,6 @@ NIL
 NIL
 1
 
-BUTTON
-50
-300
-168
-334
-NIL
-color-shape
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 CHOOSER
 42
 85
@@ -129,7 +152,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-0
+6
 
 MONITOR
 35
@@ -143,12 +166,12 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-76
-351
-150
-384
+42
+183
+105
+216
 NIL
-fraction
+go
 NIL
 1
 T
