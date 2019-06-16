@@ -9,7 +9,9 @@ pop
 concentration
 index
 popdata
-totalpop]
+totalpop
+giver  ; to identify alternative in update turtles
+]
 
 to setup
   clear-all
@@ -23,6 +25,7 @@ to setup
   let center-point  gis:location-of gis:centroid-of x
     create-turtles 1
     [ setxy item 0 center-point item 1 center-point
+      set color blue
       set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
       set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
@@ -44,22 +47,37 @@ end
 
 
 to go
+;  connect-turtles
   update-turtles
 end
 
+to connect-turtles
+  ask one-of turtles [
+   ask one-of other turtles [ set giver [ID] of myself
+    set color yellow]
+  ]
+end
 
 
 ; ID
 to update-turtles
   foreach  gis:feature-list-of bradford [x ->
     ask turtles with [ID = gis:property-value x "LSOA11NM_1"][
-      let alternative one-of other turtles
+    ;  let alternative one-of other turtles
       let vars-index position var vars
-      if 2 < 4
+    ;  ask alternative [set giver [ID] of myself]
+      if any? turtles with [giver = [ID] of myself][
+        if 2 < 10
         [ set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-           ; ask alternative [set popdata replace-item var popdata (var + 1)]
+          ask turtles with [giver = [ID] of myself]
+          [ set color violet
+           set popdata replace-item vars-index popdata (item vars-index popdata + 1) ; they can change
+            set totalpop reduce + popdata
+          ]
+          set totalpop reduce + popdata
         ]
       ]
+    ]
     ]
 
 
@@ -166,12 +184,29 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-42
-183
-105
-216
+93
+199
+156
+232
 NIL
 go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+64
+153
+180
+186
+NIL
+connect-turtles
 NIL
 1
 T
@@ -185,7 +220,8 @@ NIL
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+A turtle is linked with another, through variable giver equal to ID of caller turtle.
+Replace-item to change the value of property
 
 ## HOW IT WORKS
 
