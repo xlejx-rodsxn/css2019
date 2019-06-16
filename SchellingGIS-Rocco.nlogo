@@ -10,7 +10,7 @@ concentration
 index
 popdata
 totalpop
-giver  ; to identify alternative in update turtles
+origin
 ]
 
 to setup
@@ -53,7 +53,7 @@ end
 
 to connect-turtles
   ask one-of turtles [
-   ask one-of other turtles [ set giver [ID] of myself
+   ask one-of other turtles [ set origin [ID] of myself
     set color yellow]
   ]
 end
@@ -66,23 +66,26 @@ to update-turtles
     ;  let alternative one-of other turtles
       let vars-index position var vars
     ;  ask alternative [set giver [ID] of myself]
-      if any? turtles with [giver = [ID] of myself][
-        if 2 < 10
-        [ set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-          ask turtles with [giver = [ID] of myself]
+      if any? turtles with [origin = [ID] of myself]
+     [
+        if 2 < 10 and item vars-index popdata != 0
+        [
+          set popdata replace-item vars-index popdata (item vars-index popdata - 1)
+          ask turtles with [origin = [ID] of myself]
           [ set color violet
            set popdata replace-item vars-index popdata (item vars-index popdata + 1) ; they can change
             set totalpop reduce + popdata
           ]
           set totalpop reduce + popdata
         ]
+        ]
       ]
-    ]
     ]
 
 
 end
 
+;; TO GO FASTER inst
 
 
 ;; TO BE CLEANED UP
@@ -170,7 +173,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-6
+4
 
 MONITOR
 35
@@ -190,7 +193,7 @@ BUTTON
 232
 NIL
 go
-NIL
+T
 1
 T
 OBSERVER
