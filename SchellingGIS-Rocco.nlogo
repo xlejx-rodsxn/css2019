@@ -26,17 +26,17 @@ to setup
   let center-point  gis:location-of gis:centroid-of x
     create-turtles 1
     [ setxy item 0 center-point item 1 center-point
-      set color blue
+     ; set color blue
       set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
       set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
       set popdata map [y -> gis:property-value x y] vars
-      aggregate-data
-        ; same as pop, should be substitute in index
     ]
 ; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
   ]
+   update-turtles
+ ; reset-ticks
 end
 
 
@@ -50,94 +50,54 @@ end
 
 to go
 ;  connect-turtles
+ ; if all? turtles [happy?] [stop]
   update-turtles
+  move-unhappy-turtles
+  update-neighborhood
+ ; tick
 end
 
-; to connect-turtles
 
-;   ask turtles [if item vars-index concentration < ethnic_threshold
-;   [set happy? false
-;    set color brown
-;  ask one-of other turtles [ set origin [ID] of myself
-;        set color [color] of myself]
-;   ]
-;   ]
-; end
-
-
-
-to aggregate-data
-  let vars-index position var vars
-   set totalpop reduce + popdata
-   set concentration map [y -> precision (y / totalpop) 2] popdata
+to move-unhappy-turtles
+ if any? turtles with [not happy?] [
+  ask  turtles with [not happy?]
+  [ let vars-index position var vars
+  ;  let alternative one-of other turtles
+ ;   set color random color
+    if item vars-index popdata != 0 [
+    set popdata replace-item vars-index popdata (item vars-index popdata - 1)
+    ask one-of other turtles [set origin [ID] of myself
+    set color [color] of myself
+    set popdata replace-item vars-index popdata (item vars-index popdata + 1)
+    ]
+   ; update-turtles
+    ]
+    ]
+  ]
 
 end
-
 
 ; CALL BEHAVIOR OF TURTLES FROM GIS
 to update-turtles
-  foreach  gis:feature-list-of bradford [x ->
-   ask turtles with [ID = gis:property-value x "LSOA11NM_1"][
-    let alternative one-of other turtles
-      let vars-index position var vars
-      set happy? item vars-index concentration >= ethnic_threshold
-    ;  ask alternative [set origin [ID] of myself]
-     if any? turtles with [origin = [ID] of myself]
-     [
-        if item vars-index concentration < ethnic_threshold and item vars-index popdata != 0
-
-         [
-           set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-           ask turtles with [origin = [ID] of myself]
-         [ set color violet
-            set popdata replace-item vars-index popdata (item vars-index popdata + 1) ; they can change
-            aggregate-data
-
-           ]
-           aggregate-data
-         ]
-         ]
-     ]
-     ]
-
-
+  ask turtles [
+  let vars-index position var vars
+  set totalpop reduce + popdata
+  set concentration map [y -> precision (y / totalpop) 2] popdata
+  set happy? item vars-index concentration >= ethnic_threshold
+  ifelse happy? [set color  blue] [set color yellow]
+  ifelse hide_turtles? [hide-turtle][show-turtle]
+]
  end
 
-;; TO GO FASTER inst
+to update-neighborhood
+  let vars-index position var vars
+  foreach gis:feature-list-of bradford [x ->
+    if display_neighborhood = "concentration" [ gis:set-drawing-color scale-color red ([item vars-index concentration] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"]) 1 0 gis:fill x 0 ]
+    if display_neighborhood = "ethnic_group" [gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"]) 1 0 gis:fill x 0]
+    if display_neighborhood = "population" [gis:set-drawing-color scale-color red [totalpop] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1000 0 gis:fill x 0]
 
-
-;; TO BE CLEANED UP
-
-; (item vars-index popdata / totalpop) < (item vars-index popdata) /  totalpop)
-
-; to color-shape
- ;  foreach gis:feature-list-of bradford [ x ->
-   ;  gis:set-drawing-color scale-color red (gis:property-value x var) gis:property-maximum bradford var  1.0
-;     gis:fill x 0
-;  ]
-; end
-
-; to fraction
-;   foreach gis:feature-list-of bradford [x ->
- ;  gis:set-drawing-color ((gis:property-value x var) / (gis:property-value x "ALLETHNIC1"))
-  ;   gis:set-drawing-color scale-color red ((gis:property-value x var) / (gis:property-value x "ALL11")) 1 0
-  ;   gis:fill x 0
- ;  ]
-; end
-
-; to centroid
-;   foreach gis:feature-list-of bradford [x ->
-;   let center-point  gis:location-of gis:centroid-of x
- ;    create-turtles 1
- ;    [ setxy item 0 center-point item 1 center-point
-  ;     set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
-   ;    set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
-     ;  set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
-     ;  set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
-   ;  ]
-;  gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
- ;  ]
-; end
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 291
@@ -191,13 +151,13 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-0
+5
 
 MONITOR
-35
-446
-196
-491
+59
+526
+220
+571
 NIL
 gis:property-maximum bradford var
 17
@@ -205,30 +165,13 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-93
-199
-156
-232
+80
+236
+143
+269
 NIL
 go
-NIL
-1
 T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-64
-153
-180
-186
-NIL
-connect-turtles
-NIL
 1
 T
 OBSERVER
@@ -240,56 +183,93 @@ NIL
 
 SLIDER
 48
-254
+334
 220
-287
+367
 ethnic_threshold
 ethnic_threshold
 0
 1
-0.1
+0.9
 0.1
 1
 NIL
 HORIZONTAL
 
+MONITOR
+102
+461
+159
+506
+happy?
+count turtles with [happy? = true]
+17
+1
+11
+
+SWITCH
+69
+396
+196
+429
+hide_turtles?
+hide_turtles?
+0
+1
+-1000
+
+CHOOSER
+59
+174
+205
+219
+display_neighborhood
+display_neighborhood
+"concentration" "ethnic_group" "population"
+0
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-A turtle is linked with another, through variable giver equal to ID of caller turtle.
-Replace-item to change the value of property
+Each district area (neighborhood) is associated with a turtle, which holds an ID (= name of neighborhood). Each turtle holds a matrix with information from the census track passed by the shapefile: on columns each category we are going to include (now each column is an ethnic group); on row the information of interest referred to that ethnic group (it is the list of the turtle/district): number people from that ethnic group, total population neighborhood... Additional information can be computed within the list and for all neighborhoods.
+Rather than an interaction of agents, it is an interaction of matrices, which reports how information for each neighborhood changes at each step due to migration of people according to their ethnic preferences.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+Behavior of agents (ethnic preferences), refer to the selected ethnic group in the var global. All districts=turtle run the command at each step.
+Ethnic_threshold is global for all district/turtles and reports the desired ethnic concentration of that ethnic group in that district. If the concentration is below the ethnic threshold, the group in that district is unhappy = the district is unahppy, which means people in that district would be unhappy and have reason to migrate. If a district is unhappy, it selects randomly another district, substracts 1 unit (= 1 person) of that ethnic group from the own matrix and asks to the randomly selected neighborhood to increase of 1 unit for the same ethnic group. The composition of both origin neighborhood and destination neighborhood changes accordingly (update turtles) and each neighborhood can be both origin to one neighborhood (donates people) and destination of another (receives people).
 
-## HOW TO USE IT
+Potentially, the final scenario you should observe is one (or very few) district where all co-ethnics move, this considering there is no randomness or any condition included on how people can move or how many can be hosted. The district with higher concentration are therefore likely to become the most attractive, see Pakistani vs Indian.
 
-(how to use the model, including a description of each of the items in the Interface tab)
+In "steps_models" the models on one process step by step: how the migration of people between districts work; how happy districts are defined and migration implemented. They were totally in-steps models with code being revised. 
 
-## THINGS TO NOTICE
+Visually, happy districts (ethnic concentration is higher or equal than threshold) are blue, unhappy are yellow (to see how they change). Quite confusing and makes no sense: means a neighborhood is unhappy when there are actually no people at all; I needed it to understand what was going on. Rather, we would report how the ethnic concentration on the Bradford map would change due to the behavior of the model (the interaction of matrices <- the behavior of moving people): leave hide_turtles ON and chooser to concentration. Was working on this this morning, other indicators as segregation index quota could be used.
 
-(suggested things for the user to notice while running the model)
 
-## THINGS TO TRY
+## UPDATES
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+I showed to the group, seems good. I am working on it to simplify and check. What needs to be done:
 
-## EXTENDING THE MODEL
+- Now the model runs for one ethnic group at time, should run for all toghether, but we have specific number of categories  when we will have the shapefile, should be potentially quick to add in the code.
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+- Now there is one threshold for all groups and all neighborhoods. The different behavior between categories in the matrix interaction could be done using different thresholds to define the condition if people are happy or not. There could be different ways, e.g. different thresholds, or a "mean threshold" for each ethnic group and standard deviation from it according to the economic class. The latter seems the most preferred by the team, would limit also the number of sliders
 
-## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+- Now the neighborhoods behave according to threshold and select randomly a neighborhood where people move, as in Schelling. It should be implemented a way that the neighborhood is selected according to some computed probability, and ideally the same for the propbability of some people to migrate rather than others. I think this was also your idea to include random-wheel (RND extension), and on the discussion/material with Andreas Flache.
 
-## RELATED MODELS
+- Inclusion of randomness
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+## DOING NOW
 
-## CREDITS AND REFERENCES
+- Check if all is fine
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+- Get into RND extension or anyway how the probability-choice extension of this version would be
+
+- Include all of the categories we will use, also making up them artificially as additional list (row in matrix)
+
+- Read Coulter-Clark paper from the folder, might give insights on how the probability approach and interaction of categories should work.
+
+- Possible conditions to move (e.g. proportion of empty spaces/availability) could be included, e.g. as a random or computed number to districts or inclusion of randomness should come later.
 @#$#@#$#@
 default
 true
