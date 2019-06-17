@@ -27,13 +27,13 @@ to setup
     create-turtles 1
     [ setxy item 0 center-point item 1 center-point
      ; set color blue
-      set ID gis:property-value x "LSOA11NM_1"     ; each centroid patch has the ID of neighborhood from shapefile
+      set ID gis:property-value x "LSOA11cd"     ; each centroid patch has the ID of neighborhood from shapefile
       set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
       set popdata map [y -> gis:property-value x y] vars
     ]
-; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1 0 gis:fill x 0
+; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11cd"] 1 0 gis:fill x 0
   ]
    update-turtles
  ; reset-ticks
@@ -92,9 +92,9 @@ to update-turtles
 to update-neighborhood
   let vars-index position var vars
   foreach gis:feature-list-of bradford [x ->
-    if display_neighborhood = "concentration" [ gis:set-drawing-color scale-color red ([item vars-index concentration] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"]) 1 0 gis:fill x 0 ]
-    if display_neighborhood = "ethnic_group" [gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"]) 1 0 gis:fill x 0]
-    if display_neighborhood = "population" [gis:set-drawing-color scale-color red [totalpop] of one-of turtles with [ID = gis:property-value x "LSOA11NM_1"] 1000 0 gis:fill x 0]
+    if display_neighborhood = "concentration" [ gis:set-drawing-color scale-color red ([item vars-index concentration] of one-of turtles with [ID = gis:property-value x "LSOA11cd"]) 1 0 gis:fill x 0 ]
+    if display_neighborhood = "ethnic_group" [gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [ID = gis:property-value x "LSOA11cd"]) 1 0 gis:fill x 0]
+    if display_neighborhood = "population" [gis:set-drawing-color scale-color red [totalpop] of one-of turtles with [ID = gis:property-value x "LSOA11cd"] 1000 0 gis:fill x 0]
 
   ]
 end
@@ -151,7 +151,7 @@ CHOOSER
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-5
+1
 
 MONITOR
 59
@@ -190,7 +190,7 @@ ethnic_threshold
 ethnic_threshold
 0
 1
-0.9
+0.5
 0.1
 1
 NIL
@@ -233,6 +233,10 @@ display_neighborhood
 
 Each district area (neighborhood) is associated with a turtle, which holds an ID (= name of neighborhood). Each turtle holds a matrix with information from the census track passed by the shapefile: on columns each category we are going to include (now each column is an ethnic group); on row the information of interest referred to that ethnic group (it is the list of the turtle/district): number people from that ethnic group, total population neighborhood... Additional information can be computed within the list and for all neighborhoods.
 Rather than an interaction of agents, it is an interaction of matrices, which reports how information for each neighborhood changes at each step due to migration of people according to their ethnic preferences.
+
+## IMPORTANT
+
+Changed the ID to "LSOA11cd": it is the ID of LSOA which will be used, not the name of neighborhood and it is unique for each unit area.
 
 ## HOW IT WORKS
 
