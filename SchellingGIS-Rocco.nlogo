@@ -10,7 +10,8 @@ index
 popdata
 concentration
 totalpop
-prob_selected ; prob to be selected
+utility ; prob to be selected
+prob_sender
 origin
 happy?
 ]
@@ -37,7 +38,7 @@ to setup
 ; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11cd"] 1 0 gis:fill x 0
   ]
    update-turtles
- ; reset-ticks
+ reset-ticks
 end
 
 
@@ -55,7 +56,7 @@ to go
   update-turtles
   move-unhappy-turtles
   update-neighborhood
- ; tick
+  tick
 end
 
 
@@ -67,7 +68,7 @@ to move-unhappy-turtles
  ;   set color random color
     if item vars-index popdata != 0 [
     set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-        ask rnd:weighted-one-of turtles [prob_selected] ; roulette-wheel for selecting a destination neighborhood
+        ask rnd:weighted-one-of turtles [utility] ; roulette-wheel for selecting a destination neighborhood
 
         [set origin [ID] of myself
     set color [color] of myself
@@ -86,7 +87,7 @@ to update-turtles
   let vars-index position var vars
   set totalpop reduce + popdata
   set concentration map [y -> precision (y / totalpop) 2] popdata
-   set prob_selected (item vars-index popdata)
+   set utility (item vars-index popdata)
   set happy? item vars-index concentration >= ethnic_threshold
   ifelse happy? [set color  blue] [set color yellow]
   ifelse hide_turtles? [hide-turtle][show-turtle]
@@ -131,10 +132,10 @@ ticks
 30.0
 
 BUTTON
-19
-31
-219
-64
+300
+20
+500
+53
 NIL
 setup\ndisplay-countries\n
 NIL
@@ -148,10 +149,10 @@ NIL
 1
 
 CHOOSER
-42
-84
-189
-129
+298
+54
+445
+99
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
@@ -186,10 +187,10 @@ NIL
 1
 
 SLIDER
-48
-334
-220
-367
+302
+106
+474
+139
 ethnic_threshold
 ethnic_threshold
 0
@@ -212,10 +213,10 @@ count turtles with [happy? = true]
 11
 
 SWITCH
-69
-396
-196
-429
+306
+144
+433
+177
 hide_turtles?
 hide_turtles?
 0
@@ -223,10 +224,10 @@ hide_turtles?
 -1000
 
 CHOOSER
-59
-174
-205
-219
+448
+55
+594
+100
 display_neighborhood
 display_neighborhood
 "concentration" "ethnic_group" "population"
