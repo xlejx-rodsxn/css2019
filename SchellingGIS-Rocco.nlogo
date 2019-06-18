@@ -1,4 +1,4 @@
-extensions [ gis ]
+extensions [ gis rnd]
 globals [ bradford vars]
 
 
@@ -10,6 +10,7 @@ index
 popdata
 concentration
 totalpop
+prob_selected ; prob to be selected
 origin
 happy?
 ]
@@ -66,7 +67,9 @@ to move-unhappy-turtles
  ;   set color random color
     if item vars-index popdata != 0 [
     set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-    ask one-of other turtles [set origin [ID] of myself
+        ask rnd:weighted-one-of turtles [prob_selected] ; roulette-wheel for selecting a destination neighborhood
+
+        [set origin [ID] of myself
     set color [color] of myself
     set popdata replace-item vars-index popdata (item vars-index popdata + 1)
     ]
@@ -83,6 +86,7 @@ to update-turtles
   let vars-index position var vars
   set totalpop reduce + popdata
   set concentration map [y -> precision (y / totalpop) 2] popdata
+   set prob_selected (item vars-index popdata)
   set happy? item vars-index concentration >= ethnic_threshold
   ifelse happy? [set color  blue] [set color yellow]
   ifelse hide_turtles? [hide-turtle][show-turtle]
@@ -241,14 +245,19 @@ Changed the ID to "LSOA11cd": it is the ID of LSOA which will be used, not the n
 ## HOW IT WORKS
 
 Behavior of agents (ethnic preferences), refer to the selected ethnic group in the var global. All districts=turtle run the command at each step.
-Ethnic_threshold is global for all district/turtles and reports the desired ethnic concentration of that ethnic group in that district. If the concentration is below the ethnic threshold, the group in that district is unhappy = the district is unahppy, which means people in that district would be unhappy and have reason to migrate. If a district is unhappy, it selects randomly another district, substracts 1 unit (= 1 person) of that ethnic group from the own matrix and asks to the randomly selected neighborhood to increase of 1 unit for the same ethnic group. The composition of both origin neighborhood and destination neighborhood changes accordingly (update turtles) and each neighborhood can be both origin to one neighborhood (donates people) and destination of another (receives people).
+Ethnic_threshold is global for all district/turtles and reports the desired ethnic concentration of that ethnic group in that district. If the concentration is below the ethnic threshold, the group in that district is unhappy = the district is unahppy, which means people in that district would be unhappy and have reason to migrate. If a district is unhappy, it selects another neighborhood according to a probability to be selected (prob_selected), at the moment the probability equals to the number of people of the same ethnicity in a neighborhood (popdata). The origin neighborhood then substracts 1 unit (= 1 person) of that ethnic group from the own matrix and asks to the selected neighborhood to increase of 1 unit for the same ethnic group. The composition of both origin neighborhood and destination neighborhood changes accordingly (update turtles) and each neighborhood can be both origin to one neighborhood (donates people) and destination of another (receives people).
 
-Potentially, the final scenario you should observe is one (or very few) district where all co-ethnics move, this considering there is no randomness or any condition included on how people can move or how many can be hosted. The district with higher concentration are therefore likely to become the most attractive, see Pakistani vs Indian.
+The important is to have a reporter probability which can be computed according to the theory/assumptions.
 
-In "steps_models" the models on one process step by step: how the migration of people between districts work; how happy districts are defined and migration implemented. They were totally in-steps models with code being revised. 
+## HOW TO USE IT
 
-Visually, happy districts (ethnic concentration is higher or equal than threshold) are blue, unhappy are yellow (to see how they change). Quite confusing and makes no sense: means a neighborhood is unhappy when there are actually no people at all; I needed it to understand what was going on. Rather, we would report how the ethnic concentration on the Bradford map would change due to the behavior of the model (the interaction of matrices <- the behavior of moving people): leave hide_turtles ON and chooser to concentration. Was working on this this morning, other indicators as segregation index quota could be used.
+- Select population
+- Select threshold
+- Hide_turtles? to hide turtles and see emerging concentration
 
+## NEXT
+
+Probability for all agents to be selected as sender of people, i.e. people of that group that will move to another neighborhood.
 
 ## UPDATES
 
@@ -262,18 +271,6 @@ I showed to the group, seems good. I am working on it to simplify and check. Wha
 - Now the neighborhoods behave according to threshold and select randomly a neighborhood where people move, as in Schelling. It should be implemented a way that the neighborhood is selected according to some computed probability, and ideally the same for the propbability of some people to migrate rather than others. I think this was also your idea to include random-wheel (RND extension), and on the discussion/material with Andreas Flache.
 
 - Inclusion of randomness
-
-## DOING NOW
-
-- Check if all is fine
-
-- Get into RND extension or anyway how the probability-choice extension of this version would be
-
-- Include all of the categories we will use, also making up them artificially as additional list (row in matrix)
-
-- Read Coulter-Clark paper from the folder, might give insights on how the probability approach and interaction of categories should work.
-
-- Possible conditions to move (e.g. proportion of empty spaces/availability) could be included, e.g. as a random or computed number to districts or inclusion of randomness should come later.
 @#$#@#$#@
 default
 true
