@@ -22,7 +22,7 @@ to setup
   set bradford gis:load-dataset "Bradford_city2_data.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
-  set vars [ "BRITISH" "INDIAN" "PAKISTN" "BNGLDSH" "CHINESE" "CARIBBN" "AFRICAN" ]
+  set vars [ "BRTSH_H" "BRTSH_M" "BRTSH_L" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW"]
 
   foreach gis:feature-list-of bradford [x ->
   let center-point  gis:location-of gis:centroid-of x
@@ -34,6 +34,7 @@ to setup
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
       set popdata map [y -> gis:property-value x y] vars
+
     ]
 ; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSO11cd"] 1 0 gis:fill x 0
   ]
@@ -155,8 +156,8 @@ CHOOSER
 147
 var
 var
-"BRITISH" "INDIAN" "PAKISTN" "BNGLDSH" "CHINESE" "CARIBBN" "AFRICAN"
-0
+"BRTSH_H" "BRTSH_M" "BRTSH_L" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW"
+4
 
 MONITOR
 59
@@ -219,7 +220,7 @@ SWITCH
 245
 hide_turtles?
 hide_turtles?
-0
+1
 1
 -1000
 
@@ -234,31 +235,13 @@ display_neighborhood
 0
 
 @#$#@#$#@
-## WHAT IS IT?
+## DONE
 
-Each district area (neighborhood) is associated with a turtle, which holds an ID (= name of neighborhood). Each turtle holds a matrix with information from the census track passed by the shapefile: on columns each category we are going to include (now each column is an ethnic group); on row the information of interest referred to that ethnic group (it is the list of the turtle/district): number people from that ethnic group, total population neighborhood... Additional information can be computed within the list and for all neighborhoods.
-Rather than an interaction of agents, it is an interaction of matrices, which reports how information for each neighborhood changes at each step due to migration of people according to their ethnic preferences.
-
-## IMPORTANT
-
-Changed the ID to "LSOA11cd": it is the ID of LSOA which will be used, not the name of neighborhood and it is unique for each unit area.
-
-## HOW IT WORKS
-
-Behavior of agents (ethnic preferences), refer to the selected ethnic group in the var global. All districts=turtle run the command at each step.
-Ethnic_threshold is global for all district/turtles and reports the desired ethnic concentration of that ethnic group in that district. If the concentration is below the ethnic threshold, the group in that district is unhappy = the district is unahppy, which means people in that district would be unhappy and have reason to migrate. If a district is unhappy, it selects another neighborhood according to a probability to be selected (prob_selected), at the moment the probability equals to the number of people of the same ethnicity in a neighborhood (popdata). The origin neighborhood then substracts 1 unit (= 1 person) of that ethnic group from the own matrix and asks to the selected neighborhood to increase of 1 unit for the same ethnic group. The composition of both origin neighborhood and destination neighborhood changes accordingly (update turtles) and each neighborhood can be both origin to one neighborhood (donates people) and destination of another (receives people).
-
-The important is to have a reporter probability which can be computed according to the theory/assumptions.
-
-## HOW TO USE IT
-
-- Select population
-- Select threshold
-- Hide_turtles? to hide turtles and see emerging concentration
+Included 9 categories
 
 ## NEXT
 
-Chosen with Carolina to move more to utility definition, updating it for turtles of different ethnicityXses status.
+Correct code and include preference
 
 ## UPDATES
 
