@@ -258,7 +258,7 @@ The important is to have a reporter probability which can be computed according 
 
 ## NEXT
 
-Probability for all agents to be selected as sender of people, i.e. people of that group that will move to another neighborhood.
+Chosen with Carolina to move more to utility definition, updating it for turtles of different ethnicityXses status.
 
 ## UPDATES
 
