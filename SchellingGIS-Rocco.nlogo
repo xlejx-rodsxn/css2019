@@ -68,7 +68,7 @@ to move-unhappy-turtles
  ;   set color random color
     if item vars-index popdata != 0 [
     set popdata replace-item vars-index popdata (item vars-index popdata - 1)
-        ask rnd:weighted-one-of turtles [utility] ; roulette-wheel for selecting a destination neighborhood
+        ask rnd:weighted-one-of turtles [utility] ; roulette-wheel for selecting a destination neighborhood -> to continue and define
 
         [set origin [ID] of myself
     set color [color] of myself
