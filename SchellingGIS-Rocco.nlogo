@@ -19,7 +19,7 @@ happy?
 to setup
   clear-all
   ask patches [set pcolor white]
-  set bradford gis:load-dataset "Bradford_city2.shp"
+  set bradford gis:load-dataset "Bradford_city2_data.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
   set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
@@ -132,10 +132,10 @@ ticks
 30.0
 
 BUTTON
-300
-20
-500
-53
+23
+31
+223
+64
 NIL
 setup\ndisplay-countries\n
 NIL
@@ -149,14 +149,14 @@ NIL
 1
 
 CHOOSER
-298
-54
-445
-99
+50
+102
+197
+147
 var
 var
 "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-1
+0
 
 MONITOR
 59
@@ -170,10 +170,10 @@ gis:property-maximum bradford var
 11
 
 BUTTON
-80
-236
-143
-269
+94
+255
+157
+288
 NIL
 go
 T
@@ -187,10 +187,10 @@ NIL
 1
 
 SLIDER
-302
-106
-474
-139
+41
+171
+213
+204
 ethnic_threshold
 ethnic_threshold
 0
@@ -213,10 +213,10 @@ count turtles with [happy? = true]
 11
 
 SWITCH
-306
-144
-433
-177
+65
+212
+192
+245
 hide_turtles?
 hide_turtles?
 0
@@ -224,10 +224,10 @@ hide_turtles?
 -1000
 
 CHOOSER
-448
-55
-594
-100
+45
+320
+191
+365
 display_neighborhood
 display_neighborhood
 "concentration" "ethnic_group" "population"
