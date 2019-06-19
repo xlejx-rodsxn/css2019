@@ -19,9 +19,9 @@ library(rgdal)
 library(foreign)
 library(shapefiles)
 library(tinytex)
-shape <- readOGR(dsn ="C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019",layer = "Bradford_city2")
- attribute_dbf <- read.dbf("C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019/Bradford_city2.dbf")
- shape_shx <- read.shx("C:/Users/rocpa/OneDrive/Desktop/schelling_gis/css2019/Bradford_city2.shx")
+shape <- readOGR(dsn ="C:/Users/rocpa/OneDrive/Desktop/19_06_2019/css2019",layer = "Bradford_city2_data")
+ attribute_dbf <- read.dbf("C:/Users/rocpa/OneDrive/Desktop/19_06_2019/css2019/Bradford_city2_data.dbf")
+ shape_shx <- read.shx("C:/Users/rocpa/OneDrive/Desktop/19_06_2019/css2019/Bradford_city2_data.shx")
 ```
 
 Just gave a try on how to read shapefiles and understand what they are and how structured\

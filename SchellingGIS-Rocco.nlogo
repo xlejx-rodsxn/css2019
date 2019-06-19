@@ -22,20 +22,20 @@ to setup
   set bradford gis:load-dataset "Bradford_city2_data.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
-  set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+  set vars [ "BRITISH" "INDIAN" "PAKISTN" "BNGLDSH" "CHINESE" "CARIBBN" "AFRICAN" ]
 
   foreach gis:feature-list-of bradford [x ->
   let center-point  gis:location-of gis:centroid-of x
     create-turtles 1
     [ setxy item 0 center-point item 1 center-point
      ; set color blue
-      set ID gis:property-value x "LSOA11cd"     ; each centroid patch has the ID of neighborhood from shapefile
+      set ID gis:property-value x "LSO11cd"     ; each centroid patch has the ID of neighborhood from shapefile
       set eth-group gis:property-value x var       ; map variable: centroid reports the concentration of x ethnic group in neighborhood
       set pop gis:property-value x "ALL11"  ; map variable: centroid reports all neighborhood population
       set index  precision (( eth-group / pop) / (sum [eth-group] of turtles / sum [pop] of turtles)) 2
       set popdata map [y -> gis:property-value x y] vars
     ]
-; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSOA11cd"] 1 0 gis:fill x 0
+; gis:set-drawing-color scale-color red max [index] of turtles with [ID = gis:property-value x "LSO11cd"] 1 0 gis:fill x 0
   ]
    update-turtles
  reset-ticks
@@ -97,9 +97,9 @@ to update-turtles
 to update-neighborhood
   let vars-index position var vars
   foreach gis:feature-list-of bradford [x ->
-    if display_neighborhood = "concentration" [ gis:set-drawing-color scale-color red ([item vars-index concentration] of one-of turtles with [ID = gis:property-value x "LSOA11cd"]) 1 0 gis:fill x 0 ]
-    if display_neighborhood = "ethnic_group" [gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [ID = gis:property-value x "LSOA11cd"]) 1 0 gis:fill x 0]
-    if display_neighborhood = "population" [gis:set-drawing-color scale-color red [totalpop] of one-of turtles with [ID = gis:property-value x "LSOA11cd"] 1000 0 gis:fill x 0]
+    if display_neighborhood = "concentration" [ gis:set-drawing-color scale-color red ([item vars-index concentration] of one-of turtles with [ID = gis:property-value x "LSO11cd"]) 1 0 gis:fill x 0 ]
+    if display_neighborhood = "ethnic_group" [gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [ID = gis:property-value x "LSO11cd"]) 1 0 gis:fill x 0]
+    if display_neighborhood = "population" [gis:set-drawing-color scale-color red [totalpop] of one-of turtles with [ID = gis:property-value x "LSO11cd"] 1000 0 gis:fill x 0]
 
   ]
 end
@@ -155,7 +155,7 @@ CHOOSER
 147
 var
 var
-"PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
+"BRITISH" "INDIAN" "PAKISTN" "BNGLDSH" "CHINESE" "CARIBBN" "AFRICAN"
 0
 
 MONITOR
@@ -195,7 +195,7 @@ ethnic_threshold
 ethnic_threshold
 0
 1
-0.5
+0.2
 0.1
 1
 NIL
