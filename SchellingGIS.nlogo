@@ -5,21 +5,19 @@ turtles-own [ id popdata totalpop ]
 to setup
   clear-all
   ask patches [set pcolor white]
-  set bradford gis:load-dataset "London_Bradford_HMA/Bradford_city2.shp"
+  set bradford gis:load-dataset "Bradford_city2_data.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
-  display-countries
-  let vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
-  set ethnicities [ "ASIAN" "BLACK" "WHITE" ]
+  let vars [ "BRTSH_H" "BRTSH_M" "BRTSH_L" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW"]
+  ; let vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+  set ethnicities [ "BRITISH" "ASIAN" "BLACK" ]
   set sess ["LOW" "MID" "HIGH"]
   foreach gis:feature-list-of bradford [ x ->
     let centroid gis:location-of gis:centroid-of x
     crt 1 [
       setxy item 0 centroid item 1 centroid
-      set id gis:property-value x "LSOA11NM_1"
+      set id gis:property-value x "LSO11cd"
       let pops map [y -> gis:property-value x y] vars
-      set popdata (list (reduce + sublist pops 0 3) (reduce + sublist pops 4 5) (item 6 pops))
-      set popdata map [y -> (list (round (y / 3)) (round (y / 3)) (round (y / 3)))] popdata
-;      set popdata map [y -> gis:property-value x y] vars
+      set popdata (list (reverse sublist pops 0 3) (reverse sublist pops 3 6) (reverse sublist pops 6 9))
       set totalpop sum map [y -> sum y] popdata
     ]
   ]
@@ -32,8 +30,9 @@ to display-countries
 end
 
 to color-shape
+  ask turtles [ set hidden? hide-turtles? ]
   foreach gis:feature-list-of bradford [ x ->
-    let turt one-of turtles with [id = (gis:property-value x "LSOA11NM_1")]
+    let turt one-of turtles with [id = (gis:property-value x "LSO11cd")]
     gis:set-drawing-color scale-color red (ifelse-value
       (district-color = "POP") [ [totalpop] of turt / max [totalpop] of turtles ]
       (district-color = "ETHNIC-CONCENTRATION") [ [ethnic-concentration] of turt ]
@@ -189,7 +188,7 @@ CHOOSER
 230
 district-color
 district-color
-"ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac WHITE" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES"
+"ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac BRITISH" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES"
 9
 
 MONITOR
@@ -271,6 +270,17 @@ move-prob
 1
 NIL
 HORIZONTAL
+
+SWITCH
+932
+215
+1087
+249
+hide-turtles?
+hide-turtles?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
