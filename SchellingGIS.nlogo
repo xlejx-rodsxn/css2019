@@ -1,5 +1,5 @@
 extensions [ rnd gis ]
-globals [ bradford vars ]
+globals [ bradford ethnicities sess ]
 turtles-own [ id popdata totalpop ]
 
 to setup
@@ -8,16 +8,22 @@ to setup
   set bradford gis:load-dataset "London_Bradford_HMA/Bradford_city2.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
-  set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+  let vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
+  set ethnicities [ "ASIAN" "BLACK" "WHITE" ]
+  set sess ["LOW" "MID" "HIGH"]
   foreach gis:feature-list-of bradford [ x ->
     let centroid gis:location-of gis:centroid-of x
     crt 1 [
       setxy item 0 centroid item 1 centroid
       set id gis:property-value x "LSOA11NM_1"
-      set popdata map [y -> gis:property-value x y] vars
-      set totalpop reduce + popdata
+      let pops map [y -> gis:property-value x y] vars
+      set popdata (list (reduce + sublist pops 0 3) (reduce + sublist pops 4 5) (item 6 pops))
+      set popdata map [y -> (list (round (y / 3)) (round (y / 3)) (round (y / 3)))] popdata
+;      set popdata map [y -> gis:property-value x y] vars
+      set totalpop sum map [y -> sum y] popdata
     ]
   ]
+  reset-ticks
 end
 
 to display-countries
@@ -26,16 +32,93 @@ to display-countries
 end
 
 to color-shape
-  let vars-index position var vars
   foreach gis:feature-list-of bradford [ x ->
-    gis:set-drawing-color scale-color red ([item vars-index popdata] of one-of turtles with [id = (gis:property-value x "LSOA11NM_1")]) 1000 0
+    let turt one-of turtles with [id = (gis:property-value x "LSOA11NM_1")]
+    gis:set-drawing-color scale-color red (ifelse-value
+      (district-color = "POP") [ [totalpop] of turt / max [totalpop] of turtles ]
+      (district-color = "ETHNIC-CONCENTRATION") [ [ethnic-concentration] of turt ]
+      (district-color = "SES-CONCENTRATION") [ [ses-concentration] of turt ]
+      (district-color = "AVGERAGE SES") [ [average-ses / 2] of turt ]
+      (substring district-color 0 8 = "ethnfrac")
+        [ [sum item (position (substring district-color 9 (length district-color)) ethnicities) popdata] of turt / [totalpop] of turt ]
+      (substring district-color 0 7 = "sesfrac")
+        [ [sum map [y -> item (position (substring district-color 8 (length district-color)) sess) y] popdata] of turt / [totalpop] of turt ]
+        [ ([sum item (position (substring district-color 8 9) ethnicities) popdata] of turt / [totalpop] of turt) ])
+      1 0
     gis:fill x 0 ]
 end
 
-to select-random-person
-  let district rnd:weighted-one-of turtles [totalpop]
-  ;; to continue ...
-  show district
+to go
+  repeat 0.01 * (sum [totalpop] of turtles) [
+    ask random-district [ move-one ]
+  ]
+  color-shape
+  tick
+end
+
+to move-one
+  let ethnicity random-ethnicity
+  let ses random-ses ethnicity
+  let target random-district ; introduce here the selection of closer districts
+  if percent-similar-ethnicity ethnicity < ethnic-threshold or
+   average-ses > position ses sess or
+   random-float 1 < move-prob [
+    let ethn-ind position ethnicity ethnicities
+    let ses-ind position ses sess
+    set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata) (item ses-ind item ethn-ind popdata - 1))
+    set totalpop totalpop - 1
+    ask target [
+      set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata)(item ses-ind item ethn-ind popdata + 1))
+      set totalpop totalpop + 1
+    ]
+  ]
+end
+
+;; REPORTER
+
+to-report random-district
+  report rnd:weighted-one-of turtles [totalpop]
+end
+
+to-report random-ethnicity
+  report first rnd:weighted-one-of-list (map list ethnicities (map [x -> sum x] popdata)) [ [p] -> last p ]
+end
+
+to-report random-ses [ethnicity]
+  let ethn item (position ethnicity ethnicities) popdata
+  report first rnd:weighted-one-of-list (map list sess ethn) [ [p] -> last p ]
+end
+
+to-report percent-similar-ethnicity [ethnicity]
+  report sum item (position ethnicity ethnicities) popdata / totalpop
+end
+
+to-report ses-counts
+  report map [y -> sum map [x -> item y x] popdata] range length sess
+end
+
+to-report average-ses
+  report (sum (map [[ x y ] -> x * y] ses-counts range length sess)) / totalpop
+end
+
+to-report ethnic-concentration
+  report reduce + (map [x -> (sum x / totalpop) ^ 2] popdata)
+end
+
+to-report ses-concentration
+  report reduce + (map [x -> (x / totalpop) ^ 2] ses-counts)
+end
+
+
+
+;; BACKUP
+
+to-report transpose-popdata
+  report map [y -> map [x -> item y x] popdata] range length sess
+end
+
+to-report random-sesB
+  report first rnd:weighted-one-of-list (map list sess (map [y -> map [x -> item y x] popdata] [0 1 2])) [ [p] -> last p ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -52,8 +135,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 -16
 16
@@ -102,23 +185,92 @@ NIL
 CHOOSER
 45
 185
-192
+236
 230
-var
-var
-"PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" "ALLETHNIC1" "ALL11"
-0
+district-color
+district-color
+"ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac WHITE" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES"
+9
 
 MONITOR
-53
-241
-214
-286
-NIL
-gis:property-maximum bradford var
+115
+242
+216
+287
+max color axis
+(ifelse-value \n  (district-color = \"POP\") [ max [totalpop] of turtles ]\n  (district-color = \"CONCENTRATION\") [ 1 ]\n  [ 1 ])
 17
 1
 11
+
+BUTTON
+32
+89
+96
+123
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+49
+460
+227
+505
+avg. ethnic concentration
+sum [ethnic-concentration * totalpop] of turtles / sum [totalpop] of turtles
+3
+1
+11
+
+SLIDER
+45
+319
+220
+352
+ethnic-threshold
+ethnic-threshold
+0
+1
+0.35
+0.01
+1
+NIL
+HORIZONTAL
+
+MONITOR
+61
+512
+224
+557
+avg. ses concentration
+sum [ses-concentration * totalpop] of turtles / sum [totalpop] of turtles
+7
+1
+11
+
+SLIDER
+47
+369
+219
+402
+move-prob
+move-prob
+0
+0.1
+0.0
+0.001
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
