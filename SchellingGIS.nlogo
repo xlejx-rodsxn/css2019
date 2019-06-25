@@ -8,7 +8,6 @@ to setup
   set bradford gis:load-dataset "Bradford_city2_data.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   let vars [ "BRTSH_H" "BRTSH_M" "BRTSH_L" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW"]
-  ; let vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]
   set ethnicities [ "BRITISH" "ASIAN" "BLACK" ]
   set sess ["LOW" "MID" "HIGH"]
   foreach gis:feature-list-of bradford [ x ->
@@ -21,19 +20,14 @@ to setup
       set totalpop sum map [y -> sum y] popdata
     ]
   ]
+  color-shape
   reset-ticks
 end
 
-to display-countries
-  gis:set-drawing-color black
-  gis:draw bradford 1
-end
-
 to color-shape
-  ask turtles [ set hidden? hide-turtles? ]
   foreach gis:feature-list-of bradford [ x ->
     let turt one-of turtles with [id = (gis:property-value x "LSO11cd")]
-    gis:set-drawing-color scale-color red (ifelse-value
+    let val (ifelse-value
       (district-color = "POP") [ [totalpop] of turt / max [totalpop] of turtles ]
       (district-color = "ETHNIC-CONCENTRATION") [ [ethnic-concentration] of turt ]
       (district-color = "SES-CONCENTRATION") [ [ses-concentration] of turt ]
@@ -43,8 +37,12 @@ to color-shape
       (substring district-color 0 7 = "sesfrac")
         [ [sum map [y -> item (position (substring district-color 8 (length district-color)) sess) y] popdata] of turt / [totalpop] of turt ]
         [ ([sum item (position (substring district-color 8 9) ethnicities) popdata] of turt / [totalpop] of turt) ])
-      1 0
-    gis:fill x 0 ]
+    gis:set-drawing-color scale-color red val 1 0
+    gis:fill x 0
+    ask turt [set size 0 set label precision val 2 set label-color blue set hidden? hide-labels?]
+  ]
+  gis:set-drawing-color black
+  gis:draw bradford 1
 end
 
 to go
@@ -148,12 +146,12 @@ ticks
 30.0
 
 BUTTON
-19
-31
-219
-64
+25
+26
+99
+60
 NIL
-setup\ndisplay-countries\n
+setup\n
 NIL
 1
 T
@@ -272,15 +270,33 @@ NIL
 HORIZONTAL
 
 SWITCH
-932
-215
-1087
-249
-hide-turtles?
-hide-turtles?
-0
+886
+25
+1011
+59
+hide-labels?
+hide-labels?
+1
 1
 -1000
+
+PLOT
+1154
+67
+1354
+217
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "plot map [y -> sum y] [map [x -> item 1 x] popdata] of turtles"
 
 @#$#@#$#@
 ## WHAT IS IT?

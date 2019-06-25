@@ -17,7 +17,7 @@ happy?
 to setup
   clear-all
   ask patches [set pcolor white]
-  set bradford gis:load-dataset "Bradford_city2.shp"
+  set bradford gis:load-dataset "../London_Bradford_HMA/Bradford_city2.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   display-countries
   set vars [ "PAKISTANI" "INDIAN" "BANGLADESH" "CHINESE" "CARIBBEAN" "AFRICAN" "BRITISH" ]

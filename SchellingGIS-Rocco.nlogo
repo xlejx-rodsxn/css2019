@@ -234,6 +234,17 @@ display_neighborhood
 "concentration" "ethnic_group" "population"
 0
 
+SWITCH
+1054
+385
+1194
+418
+hide-turtles
+hide-turtles
+1
+1
+-1000
+
 @#$#@#$#@
 ## DONE
 
