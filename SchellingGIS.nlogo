@@ -1,4 +1,4 @@
-extensions [ rnd gis ]
+extensions [ matrix rnd gis ]
 globals [ bradford ethnicities sess ]
 turtles-own [ id popdata totalpop ]
 
@@ -22,6 +22,16 @@ to setup
   ]
   color-shape
   reset-ticks
+end
+
+to shuffle-population
+  let lilili [popdata] of turtles
+  let inds map [x -> range length item 0 item 0 lilili] range length item 0 lilili
+  output-print map [p -> sum (map [i -> item map [j -> item j i] p]) ] inds
+
+
+  ;
+  ; output-print map [ i -> sum (map [li -> item i li] list-of-lists) ] range length item 0 list-of-lists
 end
 
 to color-shape
@@ -187,7 +197,7 @@ CHOOSER
 district-color
 district-color
 "ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac BRITISH" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES"
-9
+6
 
 MONITOR
 115
@@ -273,10 +283,10 @@ SWITCH
 886
 25
 1011
-59
+58
 hide-labels?
 hide-labels?
-1
+0
 1
 -1000
 
@@ -297,6 +307,13 @@ false
 "" ""
 PENS
 "default" 1.0 1 -16777216 true "" "plot map [y -> sum y] [map [x -> item 1 x] popdata] of turtles"
+
+OUTPUT
+991
+285
+1264
+459
+12
 
 @#$#@#$#@
 ## WHAT IS IT?
