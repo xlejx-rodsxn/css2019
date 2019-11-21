@@ -355,6 +355,34 @@ scale-down-pop
 NIL
 HORIZONTAL
 
+PLOT
+883
+163
+1093
+395
+Ethnicity in districts
+sorted districts
+frequency
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" "clear-plot\nset-plot-x-range 0 count turtles"
+PENS
+"default" 1.0 0 -16777216 true "" "foreach range count turtles [x -> plotxy x item x sort [percent-similar-ethnicity ethnicity-plot] of turtles]"
+
+CHOOSER
+883
+394
+1021
+439
+ethnicity-plot
+ethnicity-plot
+"ASIAN" "BRITISH" "BLACK"
+0
+
 @#$#@#$#@
 ## WHAT IS IT?
 
