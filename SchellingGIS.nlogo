@@ -1,6 +1,8 @@
 extensions [ matrix rnd gis ]
 globals [ bradford ethnicities sess ]
-turtles-own [ id popdata totalpop ]
+turtles-own [ id popdata totalpop maxpop ]
+
+;; SETUP PROCEDURES
 
 to setup
   clear-all
@@ -15,9 +17,10 @@ to setup
     crt 1 [
       setxy item 0 centroid item 1 centroid
       set id gis:property-value x "LSO11cd"
-      let pops map [y -> gis:property-value x y] vars
+      let pops map [y -> round ((gis:property-value x y) / scale-down-pop)] vars
       set popdata (list (reverse sublist pops 0 3) (reverse sublist pops 3 6) (reverse sublist pops 6 9))
       set totalpop sum map [y -> sum y] popdata
+      set maxpop round (1.1 * totalpop)
     ]
   ]
   color-shape
@@ -25,14 +28,53 @@ to setup
 end
 
 to shuffle-population
-  let lilili [popdata] of turtles
-  let inds map [x -> range length item 0 item 0 lilili] range length item 0 lilili
-  output-print map [p -> sum (map [i -> item map [j -> item j i] p]) ] inds
-
-
-  ;
-  ; output-print map [ i -> sum (map [li -> item i li] list-of-lists) ] range length item 0 list-of-lists
+  let sumpopdata matrix:to-row-list reduce matrix:plus [matrix:from-row-list popdata] of turtles
+  ask turtles [
+    set popdata matrix:to-row-list matrix:map round
+      (matrix:from-row-list sumpopdata matrix:* (totalpop / sum [totalpop] of turtles))
+    set totalpop totalpop
+  ]
+  color-shape
 end
+
+to equal-population
+  ask turtles [
+    set popdata matrix:to-row-list matrix:make-constant 3 3 round (totalpop / 9)
+  ]
+  color-shape
+end
+
+;; GO PROCEDURES
+
+to go
+  repeat 0.01 * (sum [totalpop] of turtles) [
+    ask random-district [ move-one ]
+  ]
+  color-shape
+  tick
+end
+
+to move-one
+  let ethnicity random-ethnicity
+  let ses random-ses ethnicity
+  let target random-district ; introduce here the selection of closer districts
+  if [totalpop] of target < [maxpop] of target and (
+     percent-similar-ethnicity ethnicity < ethnic-threshold
+  ; or average-ses > position ses sess
+     or random-float 1 < move-prob
+  )[
+    let ethn-ind position ethnicity ethnicities
+    let ses-ind position ses sess
+    set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata) (item ses-ind item ethn-ind popdata - 1))
+    set totalpop totalpop - 1
+    ask target [
+      set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata)(item ses-ind item ethn-ind popdata + 1))
+      set totalpop totalpop + 1
+    ]
+  ]
+end
+
+;; VISUALIZATION
 
 to color-shape
   foreach gis:feature-list-of bradford [ x ->
@@ -53,32 +95,6 @@ to color-shape
   ]
   gis:set-drawing-color black
   gis:draw bradford 1
-end
-
-to go
-  repeat 0.01 * (sum [totalpop] of turtles) [
-    ask random-district [ move-one ]
-  ]
-  color-shape
-  tick
-end
-
-to move-one
-  let ethnicity random-ethnicity
-  let ses random-ses ethnicity
-  let target random-district ; introduce here the selection of closer districts
-  if percent-similar-ethnicity ethnicity < ethnic-threshold or
-   average-ses > position ses sess or
-   random-float 1 < move-prob [
-    let ethn-ind position ethnicity ethnicities
-    let ses-ind position ses sess
-    set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata) (item ses-ind item ethn-ind popdata - 1))
-    set totalpop totalpop - 1
-    ask target [
-      set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata)(item ses-ind item ethn-ind popdata + 1))
-      set totalpop totalpop + 1
-    ]
-  ]
 end
 
 ;; REPORTER
@@ -149,17 +165,17 @@ GRAPHICS-WINDOW
 16
 -16
 16
-0
-0
+1
+1
 1
 ticks
 30.0
 
 BUTTON
-25
-26
-99
-60
+24
+62
+98
+96
 NIL
 setup\n
 NIL
@@ -173,10 +189,10 @@ NIL
 1
 
 BUTTON
-32
-143
-174
-177
+29
+204
+171
+238
 NIL
 color-shape
 NIL
@@ -190,20 +206,20 @@ NIL
 1
 
 CHOOSER
-45
-185
-236
-230
+44
+256
+235
+301
 district-color
 district-color
 "ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac BRITISH" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES"
-6
+0
 
 MONITOR
-115
-242
-216
-287
+114
+314
+215
+359
 max color axis
 (ifelse-value \n  (district-color = \"POP\") [ max [totalpop] of turtles ]\n  (district-color = \"CONCENTRATION\") [ 1 ]\n  [ 1 ])
 17
@@ -211,10 +227,10 @@ max color axis
 11
 
 BUTTON
-32
-89
-96
-123
+29
+150
+93
+184
 NIL
 go
 T
@@ -228,10 +244,10 @@ NIL
 1
 
 MONITOR
-49
-460
-227
-505
+48
+496
+226
+541
 avg. ethnic concentration
 sum [ethnic-concentration * totalpop] of turtles / sum [totalpop] of turtles
 3
@@ -239,41 +255,41 @@ sum [ethnic-concentration * totalpop] of turtles / sum [totalpop] of turtles
 11
 
 SLIDER
-45
-319
-220
-352
+44
+390
+219
+423
 ethnic-threshold
 ethnic-threshold
 0
 1
-0.35
+0.3
 0.01
 1
 NIL
 HORIZONTAL
 
 MONITOR
-61
-512
-224
-557
+48
+544
+211
+589
 avg. ses concentration
 sum [ses-concentration * totalpop] of turtles / sum [totalpop] of turtles
-7
+3
 1
 11
 
 SLIDER
-47
-369
-219
-402
+46
+440
+218
+473
 move-prob
 move-prob
 0
 0.1
-0.0
+0.04
 0.001
 1
 NIL
@@ -286,34 +302,58 @@ SWITCH
 58
 hide-labels?
 hide-labels?
-0
+1
 1
 -1000
 
-PLOT
-1154
-67
-1354
-217
-plot 1
+BUTTON
+103
+62
+241
+96
+NIL
+shuffle-population
+NIL
+1
+T
+OBSERVER
 NIL
 NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 1 -16777216 true "" "plot map [y -> sum y] [map [x -> item 1 x] popdata] of turtles"
+NIL
+NIL
+1
 
-OUTPUT
-991
-285
-1264
-459
-12
+BUTTON
+104
+97
+241
+130
+NIL
+equal-population
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+35
+25
+207
+58
+scale-down-pop
+scale-down-pop
+1
+20
+5.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
