@@ -362,7 +362,7 @@ PLOT
 395
 Ethnicity in districts
 sorted districts
-frequency
+fraction
 0.0
 10.0
 0.0
@@ -382,6 +382,24 @@ ethnicity-plot
 ethnicity-plot
 "ASIAN" "BRITISH" "BLACK"
 0
+
+PLOT
+883
+436
+1115
+567
+Districts
+Fraction ethnicity
+freq
+0.0
+1.0
+0.0
+10.0
+true
+false
+"" "set-plot-x-range 0 1"
+PENS
+"default" 0.025 1 -16777216 true "" "histogram [percent-similar-ethnicity ethnicity-plot] of turtles"
 
 @#$#@#$#@
 ## WHAT IS IT?
