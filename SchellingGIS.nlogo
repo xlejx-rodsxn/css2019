@@ -8,6 +8,7 @@ to setup
   clear-all
   ask patches [set pcolor white]
   set bradford gis:load-dataset "Bradford_city2_data.shp"
+;  set bradford gis:load-dataset "TownData/Bradford.shp"
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
   let vars [ "BRTSH_H" "BRTSH_M" "BRTSH_L" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW"]
   set ethnicities [ "BRITISH" "ASIAN" "BLACK" ]
@@ -16,6 +17,7 @@ to setup
     let centroid gis:location-of gis:centroid-of x
     crt 1 [
       setxy item 0 centroid item 1 centroid
+      set id gis:property-value x "LSO11cd"
       set id gis:property-value x "LSO11cd"
       let pops map [y -> round ((gis:property-value x y) / scale-down-pop)] vars
       set popdata (list (reverse sublist pops 0 3) (reverse sublist pops 3 6) (reverse sublist pops 6 9))

@@ -1,0 +1,192 @@
+---
+title: "District Statistics and Schelling-type Models"
+author: "Jan Lorenz"
+date: "1/31/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(magrittr)
+library(haven)
+library(rgdal)
+library(sf)
+```
+
+# Idea
+
+This is a sketch of an idea for data-driven agent-based modeling of ethnic segregation. Below a short data dive.
+
+A *district-based Schelling model*: 
+
+Housholds asses their *utility* (happiness) based on the general ehtnic composition of their district not on the individual house and the direct neighborhood. Based on utility, they tend to move to another district when there is some space. Additionally, every houshold (also happy ones) may move with a certain probability. (This models moves caused by other reasons than ethnic composition.)
+
+With this we can have a model run on the districts of Englands towns. Every district can hold a certain number of housholds. This maximum number can be set initially based on empirical data, e.g. as the current number of inhabitants plus 10%. 
+
+The interesting *input variables* are the total fractions of Asian, Black, and White populations (or other ethnic groups). We can initialize this for whole cities based on empirical data. To see emergent effects of segregation, we can simulate an idealized initial distribution where we redistribute the populations equally such that all districts have the same fractions of ethnicities as the whole town, e.g. 35% Asian, 4% Black, 61% White. 
+
+The interesting *outcome variable* is the distribution of the fractions of Asians, Blacks, and Whites over all districts after Schelling dynamics stabilized. We can match this with empirical distributions. 
+
+A tentative finding is that ethnicities with small fraction (~5%) under-segregate while sizable ethnicities (~30%) over-segregate. E.g. a third of Asians in Bradford lives in districts with more than 50% Asians. Maximally extreme, they could fill a third of the districts with 100% Asians. The Blacks could fill 3% of the districts (6-7 in total) with 100% Blacks but the highest share is less than 20%. 
+Warning: The notions of over- and under segregated are very suggestive. We need to double check measures and literature to reassess the findings. From the perspective of data-driven agent-based modeling we need a more thorough quantification of *stylized facts*.  
+
+The simple model does not reproduce spatial clustering of ethnic districts. This comes with little surpirse as spatial distance does not play a role in the model. There are three alternatives for attempts to reproduce this
+
+  1. Include *neighboring districts in the housholds' computation of the ethnic composition* they perceives in their neighborhood. This would make housholds close to districts with a high fraction of the own ethnicity more "sticky" and this may in turn trigger that this district may also be more attractive for other housholds of the same ethnicity. 
+  2. Make *movements to neighboring districts* only (or much more likely). This could even explain that high-fraction minority districts are typically not in the periphery but central. It is more likely that a nucleus emerges by chance in more central districts. (We may also restrict only movements because of ethnic discomfort to proximity, but not the other random movements.)
+  3. Include *socio-economic status (SES) of housholds* in the different ethnicities. We may then subdivide each district based on empirical data into three different types of houses: lower class, middle class, and upper class houses (these are not the correct British class names I guess). Individuals can now only move between houses of their class. A lower class houshold can only move to another district when there is space in the lower class housing segment. When we make a "most equal" counterfactual initial distribution of housholds the different distributions of SES in ethnic groups must be taken into account, this may create a small unbalance initially. This may be enough to trigger the districts with higher shares of low status houses to become the high fraction districts of the ethnicity with slightly higher shares of low status housholds. 
+  
+
+
+
+
+
+# District ethnic fraction distributions for Birmingham, Bradford, Leicester, London, Manchester
+
+Used the definition of Asian2. This includes Chinese but gives the option to further distinguish SES. A bit of experimental plotting shows that exclusion of Chinese does not drasticallt change the picture. 
+
+```{r}
+shp <- c("Bradford", "Leicester", "London", "Manchester", "Birmingham") %>% 
+  map(function(str) read_sf(dsn ="TownData/",layer = str, stringsAsFactors=FALSE)) %>% 
+  reduce(rbind) %>%
+  mutate(White = (WhiteBriti + Irish + OtherWhite + Whiteand_1)/AllResiden, 
+         Asian = (Pakistani + Bangladesh + Indian + Chinese + OtherAsian)/AllResiden, 
+         Black = (African + Caribbean + OtherBlack + WhiteandBl)/AllResiden,
+         Other = (Gypsy + OtherMixed + AnyOtherEt + WhiteandAs + Arab)/AllResiden,
+         White_tot = White * AllResiden, 
+         Asian_tot = Asian * AllResiden, 
+         Black_tot = Black * AllResiden,
+         Other_tot = Other * AllResiden)
+
+shp %>% as_tibble() %>% group_by(town) %>% 
+  summarize_at(vars(AllResiden, White_tot, Asian_tot, Black_tot, Other_tot), sum) %>% 
+  mutate(Frac_White = White_tot/AllResiden, 
+         Frac_Asian = Asian_tot/AllResiden, 
+         Frac_Black = Black_tot/AllResiden, 
+         Frac_Other = Other_tot/AllResiden) %>% 
+  select(town, starts_with("Frac")) %>% knitr::kable(format.args = list(digits=3))
+```
+
+```{r}
+long_data <- shp %>% as_tibble() %>% 
+  select(-geometry) %>% pivot_longer(cols = c(White, Asian, Black, Other),
+                                   names_to = "Ethnicity", values_to = "Fraction") %>% 
+  group_by(town,Ethnicity) %>% mutate(Rank = rank(Fraction)/n())
+
+long_data %>% ggplot(aes(Rank,Fraction, color=Ethnicity)) + geom_point(size=0.2) + 
+  facet_grid(Ethnicity ~ town, scales = "free_x") +
+  scale_color_manual(values = c("darkgoldenrod3","black","blue","pink1") ) +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+long_data %>% ggplot(aes(Fraction, stat(density), fill=Ethnicity)) + geom_histogram(binwidth = 0.025) + 
+  facet_grid(Ethnicity ~ town, scales = "free_y") +
+  scale_fill_manual(values = c("darkgoldenrod3","black","blue","pink1") ) +
+  theme(legend.position = "bottom")
+```
+
+# Overview of fractions of Asians and Whites for 113 Towns
+
+
+```{r}
+d <- read_dta("TownData/ethnic_lsoa_town.2011.dta") %>% 
+  mutate(fwhite = whiteb/AllUsualResidents,
+         fasian2 = asian2/AllUsualResidents,
+         fblack = black/AllUsualResidents) %>% 
+  group_by(town) %>% 
+  summarize_at(vars(AllUsualResidents, whiteb, asian2, black), sum) %>% 
+  mutate(Frac_White = whiteb/AllUsualResidents, 
+         Frac_Asian = asian2/AllUsualResidents, 
+         Frac_Black = black/AllUsualResidents) %>% 
+  select(town, starts_with("Frac"))
+# d %>% knitr::kable(format.args = list(digits=3))
+
+d %>% ggplot(aes(Frac_White,Frac_Asian, label = as.character(town))) + 
+  geom_point() + geom_label() + geom_abline(slope = -1, intercept = 1)
+```
+
+Conclusion: We have some diversity of shares of Asians and Whites!
+We could use this to collect some stylized facts agiant which we could map Simulation outcome. 
+
+
+
+# Maps for Asians, Blacks and Whites
+
+```{r}
+# for (tow in c("Leicester","Bradford","Manchester","Birmingham")) {
+plot_Asian <- function(tow = "Leicester") {
+  shp %>% filter(town == tow) %>% ggplot() + geom_sf(aes(fill=Asian), color=NA) + 
+    scale_fill_distiller(palette = "YlOrRd", trans="reverse") + 
+    labs(title=tow) + theme_void()
+}
+plot_Black <- function(tow = "Leicester") {
+  shp %>% filter(town == tow) %>% ggplot() + geom_sf(aes(fill=Black), color=NA) + 
+    scale_fill_distiller(palette = "YlOrRd", trans="reverse") + 
+    labs(title=tow) + theme_void()
+}
+plot_White <- function(tow = "Leicester") {
+  shp %>% filter(town == tow) %>% ggplot() + geom_sf(aes(fill=White), color=NA) + 
+    scale_fill_distiller(palette = "YlOrRd", trans="reverse") + 
+    labs(title=tow) + theme_void()
+}
+```
+
+```{r}
+plot_Asian("Birmingham")
+```
+
+```{r}
+plot_Black("Birmingham")
+```
+
+```{r}
+plot_White("Birmingham")
+```
+
+```{r}
+plot_Asian("Bradford")
+```
+
+```{r}
+plot_Black("Bradford")
+```
+
+```{r}
+plot_White("Bradford")
+```
+
+```{r}
+plot_Asian("Leicester")
+plot_Black("Leicester")
+plot_White("Leicester")
+```
+
+```{r}
+plot_Asian("London")
+plot_Black("London")
+plot_White("London")
+```
+
+```{r}
+plot_Asian("Manchester")
+```
+
+```{r}
+plot_Black("Manchester")
+```
+
+```{r}
+plot_White("Manchester")
+```
+
+# Experimental 
+
+```{r}
+long_data %>% group_by(Ethnicity,town) %>% 
+  mutate(m = Fraction>0.5) %>% summarize(a = mean(m)) %>% 
+  arrange(town)
+```
+
+
