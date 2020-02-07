@@ -1,0 +1,147 @@
+---
+title: "Utility Functions"
+author: "Rocco Paolillo"
+date:  "`r  as.Date(Sys.time(), '%d %B %Y')`"
+output: pdf_document
+always_allow_html: yes
+header-includes:
+- \usepackage{float}
+- \usepackage{multirow}
+- \usepackage{xcolor} 
+- \usepackage{amsmath}
+- \usepackage{graphicx}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(magrittr)
+library(haven)
+library(rgdal)
+library(sf)
+```
+
+# Schelling Threshold
+
+
+$$
+U=
+\begin{cases}
+1, & \text{if} \ p \geq t, \\
+\\
+0, & \text{otherwise}
+\end{cases}
+$$
+
+where: \par
+- $U$: utility of district
+- $p$:  percent-similar-ethnicity, as report now in simulation (popdata/totalpop)
+- $t$: threshold
+
+
+
+
+```{r threshold, out.width="80%"}
+
+f_thr <- function(p,t){  # to plot threshold function
+  if (p >= t){
+    return(1)}else{
+    return(0) }
+}
+
+t <- 0.5
+
+df <- data.frame(psim = seq(0,1,by=0.1))
+
+for (row in 1:nrow(df)) {
+    df$utility[row] <- f_thr(df$psim[row],t)
+}
+
+ggplot(df,aes(x=psim, y=utility)) + geom_point() + theme_bw() + scale_x_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + scale_y_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + xlab("Percent Similar") + ylab("Utility") + ggtitle(paste0("Schelling Threshold Function","  ","threshold = ",t))
+
+```
+
+
+# Hatna: Linear below Threshold 
+
+
+$$
+U=
+\begin{cases}
+1, & \text{if} \ p \geq t, \\
+\\
+(\frac{p}{t}), & \text{otherwise}
+\end{cases}
+$$
+  
+where: \par
+- $U$: utility of district
+- $p$:  percent-similar-ethnicity, as report now in simulation (popdata/totalpop)
+- $t$: threshold
+
+
+```{r lin_thre, out.width="80%"}
+
+f_lit <- function(p,t){  # to plot threshold function
+  if (p >= t){
+    return(1)}else{
+    return(p / t) }
+}
+
+t <- 0.5
+
+df <- data.frame(psim = seq(0,1,by=0.1))
+
+for (row in 1:nrow(df)) {
+    df$utility[row] <- f_lit(df$psim[row],t)
+}
+
+
+
+ggplot(df,aes(x=psim, y=utility)) + geom_point() + theme_bw() + scale_x_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + scale_y_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + xlab("Percent Similar") + ylab("Utility") + ggtitle(paste0("Linear below Threshold (Hatna)","  ","threshold = ",t))
+
+```
+
+
+
+<!-- ```{r sp} -->
+
+<!-- f_sp <- function(p,t){      # SINGLE-PEAKED FUNCTION -->
+
+<!--     if (p < t){ -->
+<!--  return(p / t) -->
+<!--      }else if (p > t){ -->
+<!--         return(t + (((1- p)*(1-t))/(1-t))) -->
+<!--        }else{ -->
+<!--    return(1)} -->
+<!--        round(U,digits = 3) -->
+<!--      } -->
+
+
+<!-- t <- 0.5 -->
+
+<!-- df <- data.frame(psim = seq(0,1,by=0.1)) -->
+
+<!-- for (row in 1:nrow(df)) { -->
+<!--     df$utility[row] <- f_sp(df$psim[row],t) -->
+<!-- } -->
+
+<!-- ggplot(df,aes(x=psim, y=utility)) + geom_point() + theme_bw() + scale_x_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + scale_y_continuous(limits=c(0,1),breaks  = seq(0,1,by=0.1)) + xlab("Percent Similar") + ylab("Utility") + ggtitle(paste0("DISCARDED Single-peaked","  ","threshold = ",t)) -->
+
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
