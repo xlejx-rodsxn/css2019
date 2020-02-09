@@ -100,6 +100,35 @@ ggplot(df,aes(x=psim, y=utility)) + geom_point() + theme_bw() + scale_x_continuo
 ```
 
 
+$$
+P_{ij}= \beta U_{ij} + \epsilon{ij}
+$$
+  
+where: \par
+- $P_{ij}$: Probability of agent $i$ to select neighborhood $j$
+- $\beta U_{ij}$:  deterministic utility of agent $i$ to choose neighborhood $j$
+- $\epsilon{ij}$: random term of agent $i$ to choose neighborhood $j$
+
+\vspace{10pt}
+ 
+For the logit formula:
+
+$$
+P_ {ij} = \frac { \exp\beta U_{ij}} {\sum_{j = 1}^{k} \exp \beta U_{ij}}
+$$
+
+- $P_{ij}$ Probability of agent $i$ to select neighborhood $j$ out of $k$ options, $j\in{k}$.
+
+\vspace{10pt}
+
+For 2 options $j$ and $m$ would the the same as 
+
+
+$$
+P_{j} = \frac{1} {1 + \exp( \beta U_m - \beta U_j)}
+$$
+
+Here it is assumed deterministic utility has only one dimension: ethncity.
 
 <!-- ```{r sp} -->
 
