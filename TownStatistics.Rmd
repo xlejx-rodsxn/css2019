@@ -91,20 +91,29 @@ long_data %>% ggplot(aes(Fraction, stat(density), fill=Ethnicity)) + geom_histog
 
 
 ```{r}
-d <- read_dta("TownData/ethnic_lsoa_town.2011.dta") %>% 
-  mutate(fwhite = whiteb/AllUsualResidents,
-         fasian2 = asian2/AllUsualResidents,
-         fblack = black/AllUsualResidents) %>% 
+districts <- read_dta("TownData/ethnic_lsoa_town.2011_reduced.dta") %>% 
+  mutate(town = as.character.factor(as_factor(town)),
+         fwhite = whiteb/all,
+         fasian = asian/all,
+         fblack = black/all,
+         fothereth = othereth/all) 
+
+d <- districts %>% 
   group_by(town) %>% 
-  summarize_at(vars(AllUsualResidents, whiteb, asian2, black), sum) %>% 
-  mutate(Frac_White = whiteb/AllUsualResidents, 
-         Frac_Asian = asian2/AllUsualResidents, 
-         Frac_Black = black/AllUsualResidents) %>% 
+  summarize_at(vars(all, whiteb, asian, black, othereth), sum) %>% 
+  mutate(Frac_White = whiteb/all, 
+         Frac_Asian = asian/all, 
+         Frac_Black = black/all, 
+         Frac_Other = othereth/all) %>% 
   select(town, starts_with("Frac"))
 # d %>% knitr::kable(format.args = list(digits=3))
 
-d %>% ggplot(aes(Frac_White,Frac_Asian, label = as.character(town))) + 
+d %>% ggplot(aes(Frac_Black,Frac_Asian, label = as.character(town))) + 
   geom_point() + geom_label() + geom_abline(slope = -1, intercept = 1)
+
+
+districts %>% filter(town=="Bristol")
+d %>% filter(town=="Bristol")
 ```
 
 Conclusion: We have some diversity of shares of Asians and Whites!
@@ -188,5 +197,9 @@ long_data %>% group_by(Ethnicity,town) %>%
   mutate(m = Fraction>0.5) %>% summarize(a = mean(m)) %>% 
   arrange(town)
 ```
+
+
+
+# Segregation Indices
 
 
