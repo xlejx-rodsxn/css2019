@@ -1,5 +1,5 @@
 extensions [ matrix rnd gis ]
-globals [ bradford ethnicities sess ]
+globals [ townshp ethnicities sess ]
 turtles-own [ id popdata totalpop maxpop uti ]
 ; Data format for popdata [ [whiteb_low whiteb_mid whiteb_high] [asian_low asian_mid asian_high] [black_low black_mid black_high] [other_low other_mid other_high] ]
 
@@ -8,31 +8,31 @@ turtles-own [ id popdata totalpop maxpop uti ]
 to setup
   clear-all
   ask patches [set pcolor white]
-  set bradford gis:load-dataset (word "shp_NetLogo/" town "/" town ".shp")
-  gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of bradford))
+  set townshp gis:load-dataset (word "shp_NetLogo/" town "/" town ".shp")
+  gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of townshp))
   let vars [ "WHTB_HG" "WHTB_MD" "WHTB_LW" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW" "OTHRTH_H" "OTHRTH_M" "OTHRTH_L" ]
   set ethnicities [ "WHITEB" "ASIAN" "BLACK" "OTHER"]
   set sess ["LOW" "MID" "HIGH"]
-  foreach gis:feature-list-of bradford [ x ->
+  foreach gis:feature-list-of townshp [ x ->
     let centroid gis:location-of gis:centroid-of x
     crt 1 [
       setxy item 0 centroid item 1 centroid
-      set id gis:property-value x "LSO11CD"
+      set id gis:property-value x "LSOA11C"
       let pops map [y -> round ((gis:property-value x y) / scale-down-pop)] vars
       set popdata (list (reverse sublist pops 0 3) (reverse sublist pops 3 6) (reverse sublist pops 6 9) (reverse sublist pops 9 12))
       set totalpop sum map [y -> sum y] popdata
-      set maxpop round (1.1 * totalpop)
+      set maxpop round (totalpop / (1 - free_space))
     ]
   ]
  color-shape
+ print-town-data
  reset-ticks
 end
 
 to shuffle-population
-  let sumpopdata matrix:to-row-list reduce matrix:plus [matrix:from-row-list popdata] of turtles
   ask turtles [
     set popdata matrix:to-row-list matrix:map round
-      (matrix:from-row-list sumpopdata matrix:* (totalpop / sum [totalpop] of turtles))
+      (matrix:from-row-list townpopdata matrix:* (totalpop / sum [totalpop] of turtles))
     set totalpop totalpop
   ]
  color-shape
@@ -60,14 +60,11 @@ end
 to move-one
   let ethnicity random-ethnicity
   let ses random-ses ethnicity
-
   let options (turtle-set self random-district )         ; choice: basket of alternatives as local turtle-set of caller > the own district and a random  district (here spatial limit could be included)
   ask options [set uti utility percent-similar-ethnicity ethnicity ethnic-threshold] ; options update utility based on % similar of ethnicity rnd picked (1 roll asian,1black..) and threshold (utility reporter)
   let target rnd:weighted-one-of options [exp (beta * uti)]    ; now the target is picked up with random utility model p=exp(beta*U)/sum(beta*U), using roulette-wheel and rnd
                                                                ; beta rules randomness: the higher beta, the more selection due to difference in utility, the lower beta the more random. beta=0 50% for each option
-
-  if  target !=  self and (      ; if the target selected same as caller, nothing changes. If different, people migrate : passage of 1 ethnicXses person to the target.
-   [totalpop] of target < [maxpop] of target ) [
+  if  target !=  self and ( [totalpop] of target < [maxpop] of target ) [ ; if the target selected same as caller, nothing changes. If different, people migrate : passage of 1 ethnicXses person to the target.
     let ethn-ind position ethnicity ethnicities
     let ses-ind position ses sess
     set popdata replace-item ethn-ind popdata (replace-item ses-ind (item ethn-ind popdata) (item ses-ind item ethn-ind popdata - 1))
@@ -82,36 +79,46 @@ end
 ;; VISUALIZATION
 
 to color-shape
-  foreach gis:feature-list-of bradford [ x ->
-    let turt one-of turtles with [id = (gis:property-value x "LSO11cd")]
+  foreach gis:feature-list-of townshp [ x ->
+    let turt one-of turtles with [id = (gis:property-value x "LSOA11C")]
     let val (ifelse-value
-      (district-color = "POP") [ [totalpop] of turt / max [totalpop] of turtles ]
-      (district-color = "ETHNIC-CONCENTRATION") [ [ethnic-concentration] of turt ]
-      (district-color = "SES-CONCENTRATION") [ [ses-concentration] of turt ]
-      (district-color = "AVGERAGE SES") [ [average-ses / 2] of turt ]
-
-        (district-color = "utility ASIAN")                                     ; added graphic utility visualize, when beta is high there is much correspondence between high utility district and
-      [[ utility percent-similar-ethnicity "ASIAN" ethnic-threshold] of turt]  ; high concentration, when beta = 0 random and not coupled, makes sense
-        (district-color = "utility BRITISH")
-      [[ utility percent-similar-ethnicity "BRITISH" ethnic-threshold] of turt]
-        (district-color = "utility BLACK")
-      [[ utility percent-similar-ethnicity "BLACK" ethnic-threshold] of turt]
-
-      (substring district-color 0 8 = "ethnfrac")
-        [ [sum item (position (substring district-color 9 (length district-color)) ethnicities) popdata] of turt / [totalpop] of turt ]
-      (substring district-color 0 7 = "sesfrac")
-        [ [sum map [y -> item (position (substring district-color 8 (length district-color)) sess) y] popdata] of turt / [totalpop] of turt ]
-        [ ([sum item (position (substring district-color 8 9) ethnicities) popdata] of turt / [totalpop] of turt) ]
+      (observe = "POP") [ [totalpop] of turt / max [totalpop] of turtles ]
+      (observe = "ETHNIC-CONCENTRATION") [ [ethnic-concentration] of turt ]
+      (observe = "SES-CONCENTRATION") [ [ses-concentration] of turt ]
+      (observe = "AVGERAGE SES") [ [average-ses / 2] of turt ]
+      (observe = "pop / maxpop") [ [totalpop / maxpop] of turt ]
+      (substring observe 0 7 = "utility")
+        [[ utility percent-similar-ethnicity (substring observe 8 (length observe)) ethnic-threshold] of turt]  ; high concentration, when beta = 0 random and not coupled, makes sense
+      (substring observe 0 8 = "ethnfrac")
+        [ [sum item (position (substring observe 9 (length observe)) ethnicities) popdata] of turt / [totalpop] of turt ]
+      (substring observe 0 7 = "sesfrac")
+        [ [sum map [y -> item (position (substring observe 8 (length observe)) sess) y] popdata] of turt / [totalpop] of turt ]
     )
-
     gis:set-drawing-color scale-color red val 1 0
     gis:fill x 0
-    ask turt [
-      set size 0 set label precision val 2 set label-color blue  set hidden? hide-labels? ]
+    ask turt [ set size 0 set label precision val 2 set label-color blue  set hidden? hide-labels? ]
   ]
   gis:set-drawing-color black
-  gis:draw bradford 1
+  gis:draw townshp 1
+  update-plots
+end
 
+
+to print-town-data
+  output-print (word town ": demographic Data used")
+  output-print (word "Pop 16-74 with regular SES: " (sum map [x -> gis:property-value x "ALL1674"] gis:feature-list-of townshp))
+  output-print ""
+  output-print "Ethnicities (Fractions)"
+  output-print ethnicities
+  output-print map [x -> precision ((100 / sum [totalpop] of turtles) * x) 1] (map sum townpopdata)
+  output-print ""
+  output-print "SES = Socio-Economic Status (Fractions)"
+  output-print sess
+  output-print map [y -> precision ((100 / sum [totalpop] of turtles) * sum map [x -> item y x] townpopdata) 1 ] range length sess
+  output-print ""
+  output-print "All subgroups (rows Ethn, cols SES)"
+  output-print matrix:pretty-print-text matrix:map [x -> precision x 1]
+     matrix:times-scalar (matrix:from-row-list townpopdata) (100 / sum [totalpop] of turtles)
 end
 
 ;; REPORTER
@@ -155,6 +162,10 @@ to-report utility [a t]            ; added reporter for utility, if increaseTOth
   [report ifelse-value (a >= t) [1][0]]
 end
 
+to-report townpopdata
+  report matrix:to-row-list reduce matrix:plus [matrix:from-row-list popdata] of turtles
+end
+
 
 ;; BACKUP
 
@@ -167,13 +178,13 @@ to-report random-sesB
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-449
-21
-1082
-655
+564
+14
+1199
+650
 -1
 -1
-18.94
+19.0
 1
 10
 1
@@ -194,10 +205,10 @@ ticks
 30.0
 
 BUTTON
-28
-116
-102
-150
+21
+179
+95
+213
 NIL
 setup\n
 NIL
@@ -211,10 +222,10 @@ NIL
 1
 
 BUTTON
-32
-243
-174
-277
+29
+420
+171
+454
 NIL
 color-shape
 NIL
@@ -228,31 +239,20 @@ NIL
 1
 
 CHOOSER
-48
-295
-239
-340
-district-color
-district-color
-"ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac WHITEB" "ethnfrac OTHER" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES" "utility ASIAN" "utility BLACK" "utility BRITISH"
+28
+458
+219
+503
+observe
+observe
+"ethnfrac ASIAN" "ethnfrac BLACK" "ethnfrac WHITEB" "ethnfrac OTHER" "sesfrac LOW" "sesfrac MID" "sesfrac HIGH" "POP" "ETHNIC-CONCENTRATION" "SES-CONCENTRATION" "AVGERAGE SES" "utility ASIAN" "utility BLACK" "utility WHITEB" "utility OTHER" "pop / maxpop"
 0
 
-MONITOR
-118
-353
-219
-398
-max color axis
-(ifelse-value \n  (district-color = \"POP\") [ max [totalpop] of turtles ]\n  (district-color = \"CONCENTRATION\") [ 1 ]\n  [ 1 ])
-17
-1
-11
-
 BUTTON
-32
-203
-96
-237
+24
+243
+88
+277
 NIL
 go
 T
@@ -266,10 +266,10 @@ NIL
 1
 
 MONITOR
-43
-567
-221
-612
+62
+544
+240
+589
 avg. ethnic concentration
 sum [ethnic-concentration * totalpop] of turtles / sum [totalpop] of turtles
 3
@@ -277,25 +277,25 @@ sum [ethnic-concentration * totalpop] of turtles / sum [totalpop] of turtles
 11
 
 SLIDER
-43
-400
-218
-433
+23
+282
+198
+315
 ethnic-threshold
 ethnic-threshold
 0
 1
-0.5
+0.35
 0.01
 1
 NIL
 HORIZONTAL
 
 MONITOR
-43
-615
-206
-660
+62
+592
+225
+637
 avg. ses concentration
 sum [ses-concentration * totalpop] of turtles / sum [totalpop] of turtles
 3
@@ -303,25 +303,25 @@ sum [ses-concentration * totalpop] of turtles / sum [totalpop] of turtles
 11
 
 SLIDER
-41
-497
-213
-530
+24
+348
+196
+381
 beta
 beta
 0
 10
-2.55
-0.001
+10.0
+0.01
 1
 NIL
 HORIZONTAL
 
 SWITCH
-1089
-23
-1214
-56
+95
+505
+220
+538
 hide-labels?
 hide-labels?
 1
@@ -329,10 +329,10 @@ hide-labels?
 -1000
 
 BUTTON
-107
-116
-245
-150
+100
+179
+238
+213
 NIL
 shuffle-population
 NIL
@@ -346,10 +346,10 @@ NIL
 1
 
 BUTTON
-108
-150
-245
-183
+101
+213
+238
+246
 NIL
 equal-population
 NIL
@@ -363,25 +363,25 @@ NIL
 1
 
 SLIDER
-39
+30
 79
-211
+202
 112
 scale-down-pop
 scale-down-pop
 1
 20
-5.0
+8.0
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1086
-161
-1296
-393
+252
+289
+561
+519
 Ethnicity in districts
 sorted districts
 fraction
@@ -393,23 +393,13 @@ true
 false
 "" "clear-plot\nset-plot-x-range 0 count turtles"
 PENS
-"default" 1.0 0 -16777216 true "" "foreach range count turtles [x -> plotxy x item x sort [percent-similar-ethnicity ethnicity-plot] of turtles]"
-
-CHOOSER
-1086
-392
-1224
-437
-ethnicity-plot
-ethnicity-plot
-"ASIAN" "BRITISH" "BLACK"
-0
+"default" 1.0 0 -16777216 true "" "foreach range count turtles [x -> plotxy x item x sort [percent-similar-ethnicity (substring observe 9 (length observe))] of turtles]"
 
 PLOT
-1086
-434
-1318
-565
+252
+518
+561
+649
 Districts
 Fraction ethnicity
 freq
@@ -421,16 +411,16 @@ true
 false
 "" "set-plot-x-range 0 1"
 PENS
-"default" 0.025 1 -16777216 true "" "histogram [percent-similar-ethnicity ethnicity-plot] of turtles"
+"default" 0.025 1 -16777216 true "" "histogram [percent-similar-ethnicity (substring observe 9 (length observe))] of turtles"
 
 SWITCH
-50
-440
-225
-473
+24
+315
+199
+348
 increaseTOthreshold?
 increaseTOthreshold?
-0
+1
 1
 -1000
 
@@ -444,6 +434,28 @@ Bradford
 1
 0
 String
+
+OUTPUT
+252
+14
+561
+290
+12
+
+SLIDER
+30
+120
+202
+153
+free_space
+free_space
+0
+0.95
+0.1
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -787,7 +799,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.1.0
+NetLogo 6.1.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
