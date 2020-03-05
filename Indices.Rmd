@@ -1,0 +1,244 @@
+---
+title: "Indices"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(magrittr)
+library(haven)
+```
+
+# Segregation Indices
+
+Following @MasseyDenton1988DimensionsResidentialSegregation :
+
+Assume we have $n$ districts $\{1,\dots,n\}$ typically used for lower-labelling with index $i$ and $m$ ethnicities $\{1,\dots,m\}$ typically used for upper-labelling with index $X$. Consequently, we define $t_i$ to be the total population of district $i$ and $p^X_i$ the proportion of group $X$ in district $i$, thus, $\sum_X p_i^X = 1$. Further on, $T = \sum_i t_i$ is the total population of the town and $P^X$ is proportion of group $X$ in the whole town. 
+
+
+## Dissimilarity index 
+
+The *dissimilarity index* of group $X$ is 
+
+$$D^X = \frac{1}{2P^X(1-P^X)}\sum_i \frac{t_i}{T} \cdot |p^X_i - P^X|.$$
+where the preceeding factor is a constant normalizing such that the largest possible deviation from eveness is set to a dissimilarity of 1 (the supposed maximum). This is a measure for the whole town but one group. It can be seen as the population weighted average of dissimilarity of group $X$ in districts, which is for district $i$
+
+$$D_i^X = \frac{|p^X_i - P^X|}{2P^X(1-P^X)}.$$
+
+This measure assumes implicitly two groups the minority of concern ($X$) and the rest. 
+
+This seems to be equivalent to @Sakoda1981generalizedindexdissimilarity : 
+
+$$ D^X = \frac{1}{2} \frac{\sum_i |N_i^X - E_i^X|}{NP^X(1-P^X)}$$
+where $N_i^X = t_i \cdot p_i^X$ (number of individuals of group $X$ in $i$) and $E_i^X = \frac{N_i \cdot N^X}{N}$ being the expected number of individuals of group $X$ in district $i$. Here, $N^X = \sum_i N_i^X$ are all individuals of group $X$ and $N_i = \sum_i N_i^X$ are all individuals in district $i$. 
+
+This can be used for an index for the whole city
+
+$$D = \frac{1}{2} \frac{\sum_X \sum_i |N_i^X - E_i^X|}{\sum_X NP^X(1-P^X)}$$
+
+## Concentration index
+
+In the theoretical literature about Schelling's model one uses the average fraction of neighbors with the same ethnicity as a measure for segregation of one individual. From this we can derive the average of over all individuals from all ethnicities in a particular district
+
+$$\lambda_i = \sum_X {p_i^X}^2.$$
+
+This models the probability that two randomly selected individuals of the district are from the same group. This is also known as Simpsons index in the context to measure diversity. Diversity is the inverse $1/\lambda_i$ also known as effective number of species (in ecology) or parties (in political science). 
+
+It can be aggregated to a city-wide measure
+
+$$\Lambda = \sum_i(\frac{t_i}{T}\sum_X {p_i^X}^2).$$
+
+## Entropy index
+
+As a district based measure: 
+
+$$e_i =  - \frac{1}{\log{m}}\sum_X p_i^X \cdot \log p_i^X $$
+This measure is very close to the additive inverse of the district-based concentration measure $\lambda_i$ from above (used in theoretical Schelling literature), i.e. $e_i$ is similar to $1 - \lambda_i$. To see this, recognize that $-p\log{p}$ is similar to $p(1-p)$
+
+```{r}
+p <- seq(0,1,0.01)
+plot(p, -p*log(p), type = "l")
+lines(p, p*(1-p), col="red")
+```
+
+When we ignore the normalization factor in the entropy index and replace $-p\log{p}$ with $p(1-p)$ we have 
+
+$$\sum_X {p_i^X}(1-{p_i^X}) = \sum_X ({p_i^X} - {p_i^X}^2) = 1 - \sum_X {p_i^X}^2 = 1 - \lambda_i$$
+The central equality holds because the sum over of population fractions over all ethnicities must be one. 
+
+## Others
+
+We may extend this to Gini or Atkinson indices. 
+
+
+## Data
+
+```{r}
+districts <- read_dta("TownData/ethnic_lsoa_town.2011_reduced.dta") %>% 
+  mutate(town = as.character.factor(as_factor(town))) 
+dissimilarity_local <- function(n,t) abs(n - t*sum(n)/sum(t))
+districts %<>% group_by(town) %>% 
+  mutate(whiteb = whiteb_high + whiteb_mid + whiteb_low,
+         asian = asian_high + asian_mid + asian_low,
+         black = black_high + black_mid + black_low,
+         othereth = othereth_high + othereth_mid + othereth_low,
+         fwhiteb = whiteb/all1674valid, 
+         fasian = asian/all1674valid,
+         fblack = black/all1674valid,
+         fothereth = othereth/all1674valid) %>% 
+  mutate(whiteb_dissim_loc = dissimilarity_local(whiteb, all1674valid),
+         concentration = fwhiteb^2 + fasian^2 + fblack^2 + fothereth^2,
+         entropy = -(if_else(fwhiteb>0, fwhiteb*log(fwhiteb), 0) + 
+                     if_else(fasian>0, fasian*log(fasian), 0) + 
+                     if_else(fblack>0, fblack*log(fblack), 0) +
+                     if_else(fothereth>0, fothereth*log(fothereth), 0))/log(4) 
+         )
+```
+
+Empirically ethnic concentration and ethnic entropy on the LSOA level are completely anticorrelated with Pearson correlation `r cor(districts$concentration, districts$entropy, use = "pairwise.complete.obs")`.
+
+```{r}
+towns <- districts %>% group_by(town) %>% 
+  summarize(local_concentration = sum(concentration * all1674valid)/sum(all1674valid),
+            entr = sum(entropy * all1674valid)/sum(all1674valid),
+            fwhiteb = sum(fwhiteb * all1674valid)/sum(all1674valid),
+            fasian = sum(fasian * all1674valid)/sum(all1674valid),
+            fblack = sum(fblack * all1674valid)/sum(all1674valid),
+            fothereth = sum(fothereth * all1674valid)/sum(all1674valid)) %>% 
+  mutate( concentration = fwhiteb^2 + fasian^2 + fblack^2 + fothereth^2 ,
+          entropy = -(if_else(fwhiteb>0, fwhiteb*log(fwhiteb), 0) + 
+                     if_else(fasian>0, fasian*log(fasian), 0) + 
+                     if_else(fblack>0, fblack*log(fblack), 0) +
+                     if_else(fothereth>0, fothereth*log(fothereth), 0))/log(4) )
+
+s <- districts %>% left_join(select(towns, town, town_concentration = concentration, 
+                                    town_entropy = entropy), by = "town") %>% 
+  group_by(town) %>% 
+  summarize(entropy_index = sum(all1674valid * (town_entropy - entropy) / town_entropy / sum(all1674valid)),
+            concentration_index = sum(all1674valid * (concentration - town_concentration) / 
+                                        town_concentration / sum(all1674valid))) %>% 
+  left_join(towns, by = "town") %>% 
+  arrange(desc(concentration_index))
+  
+
+cor(s$entropy_index, s$concentration_index, use = "pairwise.complete.obs")
+```
+
+
+
+## Simulation Records
+
+General procedure: Load City, Shuffle Population, Run the simulation for long time and check
+
+  (A) How good is the fit with original unshuffled population at a transition state at a certain point in time
+  (B) How good is the fit in a stable (or metastable) state
+
+The goodness of fit is not fully formalized yet but goes qualitatively and comparatively over several criteria:
+
+  (1) Distribution of fractions of ethnic (and SES) groups over all districts
+  (2) Town-wide segregation measures (average ethnic concentration over districts)
+  
+
+
+Bradford Sim 1: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=5 beta=4
+Results: (A) not achieved for Asians (too steep, to high in the lows), (B) seems to work for (2)
+Bradford Sim 2: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=5 beta=2
+Results: (A) not achieved for Asians (too steep, almost one step, to high in the lows), (B) seems to work for (2)
+Bradford Sim 3: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=2 beta=4
+Results: (A) relative close for Asians at 70 ticks (a bit too steep), (B) goes too high for (2)
+Bradford Sim 4: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=2 beta=2
+Results: (A) not achieved for Asians (too steep, almost one step, to high in the lows),(B) goes too high for (2)
+Bradford Sim 5: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=2 beta=6
+Results: (A) relative close for Asians at 70 ticks (a bit too steep), (B) goes too high for (2)
+Bradford Sim 6: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=2 beta=10
+Results: (A) relative close for Asians at 70 ticks, even better than 5, (B) goes too high for (2)
+Bradford Sim 7: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=5 beta=10
+Results: (A) relative close for Asians at 3000 ticks, but not enough, still moves but already slower, (B) still to low (2)
+Bradford Sim 8: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=4 beta=10
+Results: (A) relative close for Asians at 850 ticks, but not enough, still moves but already slower, better than 7! (B) still to low (2)
+Bradford Sim 9: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=3.5 beta=10
+Results: (A) relative close for Asians at 850 ticks, but not enough, still moves but already slower, probably better than 8 (B) still to low (2)
+Bradford Sim 10: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.35 ses-threshold=0.35 ses-weight=3.5 beta=7.5
+Results: (A) relative close for Asians at 850 ticks, but too much too steep  (B) still to low (2)
+Bradford Sim 11: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=3.5 beta=10
+Results: (A) relative close for Asians at 2000 ticks, but too low  (B) still to low (2)
+Note: It reproduced the Asian peak districts closely
+Bradford Sim 12: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=3 beta=10
+Results: (A) relative close for Asians at 900 ticks, but too low, similar to 11  (B) still to low (2)
+Bradford Sim 13: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=2 beta=10
+Results: (A) relative close for Asians at 1300 ticks, goes slightly too high  (B) too high (2)
+Bradford Sim 14: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=2.5 beta=10
+Results: (A) relative close for Asians at 1300 ticks, goes slightly too high  (B) too high (2)
+Bradford Sim 15: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.25 ses-threshold=0.25 ses-weight=2.5 beta=10
+Results: (A) relative close for Asians at 1300 ticks, to flat (and steppy)  (B) too low (2)
+Bradford Sim 16: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=2.5 beta=8
+Results: (A) relative close for Asians at 500 ticks, goes slightly too steep/too steppy  (B) only slightly too high (2)
+Bradford Sim 17: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=3.5 beta=9
+Results: (A) relative close for Asians at 500 ticks, goes slightly too low  (B) too low (2)
+Bradford Sim 18: 
+move-within-ses decide-search-first include-neighbor-districts
+ethnic-threshold=0.3 ses-threshold=0.3 ses-weight=3 beta=9
+Results: (A) relative close for Asians at 500 ticks, goes slightly too low  (B) too low (2)
+
+Sims 1-x: There is a general tendency that the highly segregated districts are peripheral. Also the SES restriction seems to make certain spatial patterns more likely. In transient states two to three spatial centers emerge for Asians (as in real data). 
+
+Last try: Heterogeneity of ethnic-threshold 
+
+popdata to individual vector
+[[ethn-ind ses-ind thresh] ... for each individual]]
+
+
+
+
+
+## Utility function
+```{r}
+probability <- function(U,beta) {1 / (1 + exp ( - beta * U))}
+utility <- function(x,y,thresh,yweight) {x - thresh + yweight * (y - thresh)}
+
+x=seq(0,1,0.01)
+
+plot(x,probability(utility(x,0.3,0.3,1), 30))
+
+  ```
+
+
+
+
