@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(magrittr)
 library(haven)
-library(rgdal)
 library(sf)
 ```
 
@@ -47,28 +46,6 @@ The simple model does not reproduce spatial clustering of ethnic districts. This
 Used the definition of Asian2. This includes Chinese but gives the option to further distinguish SES. A bit of experimental plotting shows that exclusion of Chinese does not drasticallt change the picture. 
 
 ```{r}
-shp <- c("Bradford", "Leicester", "London", "Manchester", "Birmingham") %>% 
-  map(function(str) read_sf(dsn ="TownData/",layer = str, stringsAsFactors=FALSE)) %>% 
-  reduce(rbind) %>%
-  mutate(White = (WhiteBriti + Irish + OtherWhite + Whiteand_1)/AllResiden, 
-         Asian = (Pakistani + Bangladesh + Indian + Chinese + OtherAsian)/AllResiden, 
-         Black = (African + Caribbean + OtherBlack + WhiteandBl)/AllResiden,
-         Other = (Gypsy + OtherMixed + AnyOtherEt + WhiteandAs + Arab)/AllResiden,
-         White_tot = White * AllResiden, 
-         Asian_tot = Asian * AllResiden, 
-         Black_tot = Black * AllResiden,
-         Other_tot = Other * AllResiden)
-
-shp %>% as_tibble() %>% group_by(town) %>% 
-  summarize_at(vars(AllResiden, White_tot, Asian_tot, Black_tot, Other_tot), sum) %>% 
-  mutate(Frac_White = White_tot/AllResiden, 
-         Frac_Asian = Asian_tot/AllResiden, 
-         Frac_Black = Black_tot/AllResiden, 
-         Frac_Other = Other_tot/AllResiden) %>% 
-  select(town, starts_with("Frac")) %>% knitr::kable(format.args = list(digits=3))
-```
-
-```{r}
 long_data <- shp %>% as_tibble() %>% 
   select(-geometry) %>% pivot_longer(cols = c(White, Asian, Black, Other),
                                    names_to = "Ethnicity", values_to = "Fraction") %>% 
@@ -92,11 +69,7 @@ long_data %>% ggplot(aes(Fraction, stat(density), fill=Ethnicity)) + geom_histog
 
 ```{r}
 districts <- read_dta("TownData/ethnic_lsoa_town.2011_reduced.dta") %>% 
-  mutate(town = as.character.factor(as_factor(town)),
-         fwhite = whiteb/all,
-         fasian = asian/all,
-         fblack = black/all,
-         fothereth = othereth/all) 
+  mutate(town = as.character.factor(as_factor(town))) 
 
 d <- districts %>% 
   group_by(town) %>% 
@@ -190,16 +163,13 @@ plot_Black("Manchester")
 plot_White("Manchester")
 ```
 
-# Experimental 
+<!-- # Experimental  -->
 
-```{r}
-long_data %>% group_by(Ethnicity,town) %>% 
-  mutate(m = Fraction>0.5) %>% summarize(a = mean(m)) %>% 
-  arrange(town)
-```
+<!-- ```{r} -->
+<!-- long_data %>% group_by(Ethnicity,town) %>%  -->
+<!--   mutate(m = Fraction>0.5) %>% summarize(a = mean(m)) %>%  -->
+<!--   arrange(town) -->
+<!-- ``` -->
 
-
-
-# Segregation Indices
 
 
