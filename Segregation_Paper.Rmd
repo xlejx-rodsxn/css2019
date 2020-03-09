@@ -1,0 +1,226 @@
+---
+title: What mechanisms drive neighborhood ethnic segregation in the UK? Lessons learned
+  from Bayesian and agent-based spatial modelling
+author: 
+  - Carolina V. ZUCCOTTI
+  - Jan LORENZ
+  - Rocco PAOLILLO
+  - Alejandra RODRÍGUEZ SÁNCHEZ
+  - Selamawit SERKA
+abstract: 
+output: 
+  pdf_document:
+    number_sections: true 
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(knitr)
+```
+
+# Extended Abstract
+
+Research on patterns of neighborhood ethnic segregation in the UK and, more generally, in the European context, has been very much dominated by the exploration of segregation indices (Catney 2017; Simpson 2004). While these studies are of great importance for describing the changes in the spatial distribution of ethnic minorities over time—and new methodologies have improved their calculation (Johnston et al. 2016)—they are limited first, in their ability to disentangle the mechanisms behind those changes, and second, in their capacity to predict how neighborhood ethnic segregation might evolve over time. Using aggregated census and register data from selected English cities, this study presents and discusses two alternative (and complementary) methodological approaches that address this concern. These approaches consider, in different ways, three explanatory mechanisms that have been highlighted by the literature: ethnic groups’ socioeconomic resources and how they interact with housing prices and residential structures; discrimination in the housing market; and individuals’ preferences to live close to members of the same group (Logan and Alba 1993). Specifically, we ask: first, what factors are associated to an increase in neighborhood ethnic segregation (or decrease thereof) in the UK? Second, how might segregation evolve should these mechanisms persist over time; or conversely, how could segregation reduce?
+
+The first methodological approach considers hierarchical Bayesian spatial models of segregation (Anselin 1995) to predict observed segregation patterns.  Specifically, we investigate the behavior of local indices of segregation (2001-2011)—that is, indices that are able to classify each spatial unit in a city—with aggregated information obtained for the same spatial units in 2001. This methodology allows identifying macro-level factors associated to the observed segregation patterns; in addition, an advantage is that it allows taking into consideration the spatial autocorrelation of data, that is, the fact that contiguous spatial units are more similar to each other in their levels of spatial segregation. Preliminary analyses predicting the local spatial entropy index (a local measure of ethnic diversity)  in the city of Bradford, show that an increase in housing prices tended to de-segregate areas, making them more homogenous in terms of the ethnic-racial composition of the population, whereas certain characteristics of the population (in terms of age structures, proportion of highly educated and proportion singles) tended to increase segregation at the local level. 
+
+The second methodological approach is based on agent-based models and, more specifically, on an improved version of Schelling’s model of segregation. Schelling (1971) showed that individuals’ preferences for in-group members—as well as their “thresholds of tolerance”—play a key role in spatial segregation. We add another key predictor of neighborhood choice: individuals’ socioeconomic characteristics (Crowder, South, and Chavez 2006).  Specifically, we first discuss the combined role of individuals’ preferences for co-ethnics and their socioeconomic status, and what the implications of this might be for Shelling’s theoretical model; next, we implement this improved model in selected cities in England, under the assumption that the role of socioeconomic  assets on neighborhood choice varies across ethnic groups (Zuccotti 2019; Coulter and Clark 2018). Preliminary results show that…
+
+The paper concludes with an overview of the key mechanisms associated to neighborhood ethnic segregation in the UK, as well as with a discussion of the benefits and limitations of both methodologies for the study of neighborhood segregation.
+
+# Data
+
+```{r LoadUKData}
+# source("R/write_SHP_UK_for_Netlogo.R")
+load("R/data")
+```
+
+
+
+We use census data from ..SOURCE.. from the years 2011 and 2001. 
+We use LSOAs (Lower Layer Super Output Areas) of towns in England. 
+These are ... towns (with population between ... and ...).
+Each town has between ... and ... LSOAs. 
+Each LSOA has between 1,000 and 1,500 inhabitants (that is the census goal, check real data). 
+For each LSOA we extracted the contingency tables for the population with respect to four groups of ethnicities and three groups of socio-economic status. 
+Reasons why we focus on towns as the upper level unit of observation. 
+
+The ethnicty groups are composed of the following groups:
+
+  * WHITEB (White British): ...
+  * ASIAN: ... 
+  * BLACK: ...
+  * OTHER: ... 
+
+Give some reasons why we use this classification. Why are Chinese in Asians although they would not consider themselves as similar, same with Indians and Pakistani? What about the black? What about other? What about Irish?
+The reasons lie in a mix of 
+
+  * data availability
+  * defining not too small groups which are likely to consider themselves as from similar ethnicity based on simple  criteria which can be recognized by a visit to the district when searching a house. 
+  * common practices
+  
+The socio-economic status (SES) is extracted from NSSEC (..SOURCE..) to the following three classes
+
+  * LOW: Classes 1 and 2
+  * MID: Classes 3 and 4
+  * HIGH: Classes 5, 6, and 7
+
+The classification of SES excludes the class 8 ("Never worked and long-term unemployed"). 
+Further on, the cross-tabulation includes only the population between 16 and 74 (CHECK was there a reason in the data for this?). 
+
+With this restriction, the population used in our study deviates slightly from the total population (which includes children, very old people, and class 8), but it focusses on the part of the population which mostly considered to be able to do independent decisions of relocation. 
+
+Finally we end up with a dataset which delivers us the population number for twelve mutually exclusive groups:
+
+  * WHITEB_LOW, WHITEB_MID, WHITEB_HIGH
+  * ASIAN_LOW, ASIAN_MID, ASIAN_HIGH
+  * BLACK_LOW, BLACK_MID, BLACK_HIGH
+  * OTHER_LOW, OTHER_MID, OTHER_HIGH
+
+For the cross tabulation we can extract the margin population numbers for each ethnicity WHITEB, ASIAN, BLACK, and OTHER and each SES group LOW, MID, HIGH, as well as the total population (excluding children, very old and class 8). 
+
+For the spatial information of LSOAs we used the GIS data Lower_Layer_Super_Output_Areas_December_2011_Boundaries_EW_BSC provided by ..SOURCE.. (and 2001??)
+This dataset provides shapefiles with a low resolution for every LSOA. 
+The low resolution is sufficient because with our modeling purposes we are mostly interested in the neighborhood relations and rough distances of regional units. 
+For each town of interest we joined demographic and the geograhic data in one dataset. 
+
+We can now use the population numbers on the LSOA level to compute the same numbers for higher level regional units, e.g. 
+
+  * the population statistics of one LSOA and all its neighboring LSOAs (using the GIS operation of selecting regions which share at least a part of the boundaries)
+  * the population statistics of the whole town. 
+  
+In the following, we index count values of the contingency tables as $N_i^{X,Y}$ where subscripts index the LSOA, the first superscript the ethnicity and the second the SES. In our case, $X \in \text{Eth} = \{\text{WHITEB},\text{ASIAN},\text{BLACK},\text{OTHER}\}$ and $Y \in \text{SES} = \{\text{LOW},\text{MID},\text{HIGH}\}$. Margin total counts for a particular town are thus defined as:
+
+  * $N^{X,\cdot}_i = \sum_{Y\in\text{SES}} N_i^{X,Y}$ and $N^{X,\cdot}_i = \sum_{X\in\text{Eth}} N_i^{X,\cdot}$ where we abbriviate $N^X_i := N^{X,\cdot}_i$ and $N^Y_i := N^{X,\cdot}_i$ when the superscript index label or the context make it clear if we speak of ethnicity or SES. 
+  * $N_i = \sum_{X \in \text{Eth}, Y \in \text{SES}} N_i^{X,Y}$
+  * $N^X = \sum_{i,X\in\text{Eth}} N_i^{X}$, $N^Y = \sum_{i,Y\in\text{SES}} N_i^{Y}$
+  * $N = \sum_{i} N_i = \sum_{X\in\text{Eth}} N^{X} = \sum_{Y\in\text{SES}} N^{Y} = \sum_{i,X\in\text{Eth},Y\in\text{SES}} N_i^{X}$
+
+We define fractions of population in an analog way, where 
+
+  * $P_i^{X,Y} = N_i^{X,Y}/N_i$
+  * $P_i^X = N_i^X/N_i$, $P_i^Y = N_i^Y/N_i$
+  * $P^X = N^X/N$, $P^Y = N^Y/N$
+  
+(Note: It may also turnout useful to compute fractions of Ethncities for each SES and vice versa on the LSOA or town level, e.g. $N_i^{X,Y}/N^X_i$ for SES $Y$ or $N_i^{X,Y}/N^X_i$ for ethnicity $X$. This is not covered in the logic applied above, where we assume the the fraction is always with respect to the total of the geographic unit only. )
+  
+# Segregation measures
+
+Based on the dataset we can compute several segregation measures on the levels of the LSOA and of the town
+
+These are group-based measures 
+
+  * fractions for each ethnicity (4 measures $P^X_i$, $P^X$)
+  * fractions for each SES group (3 measures $P^Y_i$, $P^Y$)
+  * fractions for each ethnicty-SES group (12 measures $P^{X,Y}_i$)
+  * location quotients (for LSOAs only) showing how much higher (or lower) the fraction of a group is proportionally compared to the town level ($P^X_i/P^X$)
+  * dissimilarity for LSOA showing the absolute deviation of the fraction of the group from the town level ($\frac{| P_i^X - P^X|}{2 P^X(1 - P^X)}$)
+  * dissimilarity for the town, showing the population weighted average of dissimilarity of the LSOA level for the group ($\sum_i \frac{N_i}{N} \frac{|P_i^X - P^X|}{2 P^X(1 - P^X)}$, this is by definition between zero and one). 
+  
+and Segregation indices
+  
+  * local Simpson index (on town and LSOA level) showing the probability that two randomly selected individuals are from the same group ($\sum_X {P_i^X}^2$ and $\sum_X {P^X}^2$, this is the index used in theoretical studies of  Schelling's model)
+  * local entropy index (on town and LSOA level) showing how diverse the ethnic mix in the region is ($- \frac{1}{\log \#\text{Eth}}\sum_{X\in\text{Eth}} P_i^X \cdot \log P_i^X$ and $- \frac{1}{\log \#\text{Eth}}\sum_{X\in\text{Eth}} P^X \cdot \log P^X$, mathematically and empirically very similar to one minus the local Simpson index)
+  * average local Simpson index on the town level ($\sum_i \frac{N_i}{N}\sum_X {P_i^X}^2$)
+  * average local entropy index on the town level ($- \frac{1}{\log \#\text{Eth}}\sum_i \frac{N_i}{N} \sum_{X\in\text{Eth}} P_i^X \cdot \log P_i^X$)
+  * excess average local Simpson index (this measures how much higher the average local index is compared to index in the town as a whole, $(\sum_i \frac{N_i}{N}\sum_X {P_i^X}^2) - \sum_X {P^X}^2$)
+  * loss of average local entropy index (this measures how much lower the average local index is compared to the index of the town as a whole, $- \frac{1}{\log \#\text{Eth}}\sum_{X\in\text{Eth}} P^X \cdot \log P^X + \frac{1}{\log \#\text{Eth}}\sum_i \frac{N_i}{N} \sum_{X\in\text{Eth}} P_i^X \cdot \log P_i^X$)
+  
+  
+TODO: Decide which indicators to use for what. For Simpson we need to check which is the least 
+
+
+# Outline of Analysis
+
+## Hypothesis from Theory
+
+Mechanisms for segregation form sociological theories.   
+
+
+## Descriptives and Stylized Facts
+
+Distributions of fractions of ethnicities in selected cities
+
+```{r Descriptives}
+ethn_data <- long_districts %>%
+  group_by(lsoa11cd, town, all, all1674valid, Ethnicity) %>% summarize(count = sum(count)) %>%
+  group_by(town) %>% mutate(count_town = sum(count)) %>% 
+  group_by(town, lsoa11cd) %>% mutate(count_lsoa = sum(count), fraction_lsoa = count_lsoa/count_town) %>% 
+  group_by(town, Ethnicity) %>% mutate(count_ethnicity_town = sum(count), 
+                                       fraction_ethnicity_town = count_ethnicity_town / count_town) %>% 
+  group_by(lsoa11cd) %>% mutate(fraction_ethnicity = count / count_lsoa,
+                                Dissimilarity = abs(fraction_ethnicity -
+                                              fraction_ethnicity_town)/(2*fraction_ethnicity_town*(1-fraction_ethnicity_town)),
+                                Location_Quotient = fraction_ethnicity/fraction_ethnicity_town)
+ethn_dissimilarity_towns <- ethn_data %>% group_by(town,Ethnicity) %>% 
+  summarize(Dissimilarity = sum(fraction_lsoa * Dissimilarity))
+ethn_segregation_town <- ethn_data %>% group_by(town, Ethnicity, count_ethnicity_town, fraction_ethnicity_town) %>%
+  summarize() %>% group_by(town) %>% 
+  summarize(Simpson_town = sum(fraction_ethnicity_town^2), 
+                            Entropy_town = -1/log(4)*sum(fraction_ethnicity_town*log(fraction_ethnicity_town)))
+ethn_segregation <- ethn_data %>% left_join(ethn_segregation_town, by = "town") %>% 
+  group_by(lsoa11cd, town, fraction_lsoa, Simpson_town, Entropy_town) %>%
+  summarize(Simpson = sum(fraction_ethnicity^2), 
+            Entropy = -1/log(4)*sum(fraction_ethnicity*if_else(fraction_ethnicity == 0, 0, log(fraction_ethnicity)))) %>% 
+  mutate(Excess_Simpson = Simpson - Simpson_town, Loss_Entropy = Entropy_town - Entropy)
+ethn_segregation %>% group_by(town) %>% summarize(Avg_Simpson = sum(fraction_lsoa*Simpson), 
+                                                  Avg_Excess_Simpson = sum(fraction_lsoa*Excess_Simpson), 
+                                                  Avg_Entropy = sum(fraction_lsoa*Entropy),
+                                                  Avg_Loss_Entropy = sum(fraction_lsoa*Loss_Entropy)) %>% 
+  right_join(ethn_segregation_town, by = "town") -> ethn_segregation_town
+
+ethn_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
+  group_by(town,Ethnicity) %>% mutate(Rank = rank(fraction_ethnicity)) %>% 
+  ggplot(aes(Rank,fraction_ethnicity, color=Ethnicity)) + geom_point(size=0.2) + 
+  facet_grid(Ethnicity ~ town, scales = "free_x") +
+  scale_color_manual(values = c("darkgoldenrod3","black","blue","pink1") ) +
+  ylab("Faction") +
+  theme(legend.position = "bottom")
+```
+
+Highest dissimilarity index values: 
+
+```{r}
+ ethn_dissimilarity_towns %>% group_by() %>% 
+  arrange(desc(Dissimilarity)) %>% head(10) %>% kable
+```
+
+Highest average loss entropy, average excess Simpson index values, average entropy, average Simpson index:
+
+```{r}
+ ethn_segregation_town %>% select(town, Avg_Loss_Entropy, Avg_Excess_Simpson, Avg_Entropy, Avg_Simpson) %>% 
+  group_by() %>% 
+  arrange(desc(Avg_Loss_Entropy)) %>% head(10) %>% kable
+```
+
+Distribution of SES in selected towns.
+
+```{r }
+ses_data <- long_districts %>% group_by(lsoa11cd, town, all, all1674valid, SES) %>% 
+  summarize(count = sum(count)) %>% mutate(Fraction = count / all1674valid)
+ses_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
+  group_by(town,SES) %>% mutate(Rank = rank(Fraction)) %>% 
+  ggplot(aes(Rank,Fraction, color=SES)) + geom_point(size=0.2) + 
+  facet_grid(SES ~ town, scales = "free_x") +
+  scale_color_manual(values = c("red","green","blue") ) +
+  theme(legend.position = "bottom")
+```
+
+
+## Spatial Regression
+
+## Agent-based dynamical model
+
+
+
+
+  
+  
+
+
+
+
+

@@ -112,13 +112,15 @@ to individual-decides ; for random districts
     let thresh item 2 indiv
     let U_home utility ethn-ind ses-ind thresh
     ; probabilistic event: Does person wants to move? (based on absolute utility) can be switched off (that models that people always check one option)
-    if random-float 1 < probability (- U_home) or not decide-search-first [
+;    if random-float 1 < probability (- U_home) or not decide-search-first [
+    if U_home + random-gumbel < 0 or not decide-search-first [
       if report-activities [set searches-count searches-count + 1]
       let option ifelse-value (moves-within-ses) [random-ses-option position ses sess] [random-option]
       let U_option [utility ethn-ind ses-ind thresh] of option
       ; probabilistic event: Person decides to take the option or stay (based on relative utility)
       let free ifelse-value (moves-within-ses) [[(item (position ses sess) ses-maxpop) - (item (position ses sess) ses-counts)] of option] [[maxpop - totalpop] of option]
-      if (free > 0) and (random-float 1 < probability (U_option - U_home)) [
+;      if (free > 0) and (random-float 1 < probability (U_option - U_home)) [
+      if (free > 0) and (U_option - U_home + random-logistic > 0) [
         if report-activities [set moves-count moves-count + 1]
         individual-moves option ethn-ind ses-ind indiv-ind indiv
       ]
@@ -152,7 +154,7 @@ to visualize
       [one-of staticempiricals with [id = (gis:property-value x "LSOA11C")]]
       [one-of districts with [id = (gis:property-value x "LSOA11C")]]
     let val value-for-monitoring dist
-    gis:set-drawing-color ifelse-value (val >= 0) [scale-color red val color-axis-max 0] [scale-color blue (color-axis-max - val) 1 0]
+    gis:set-drawing-color ifelse-value (val >= 0) [scale-color red val color-axis-max 0] [scale-color blue (0 - val) color-axis-max 0]
     gis:fill x 0
     ask dist [ set size 0 set label precision val 2 set label-color blue  set hidden? not show-labels ]
   ]
@@ -211,7 +213,7 @@ to-report value-for-monitoring [dist]
     (measure = "ethnicity dissimilarity") [ [dissimilarity show-ethnicity] of dist ]
     (measure = "ethnicity location quotient") [ [location-quotient show-ethnicity] of dist ]
     (measure = "utility (for threshold-mean)") [ [utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
-    (measure = "probability for search") [ probability [ 0 - utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
+   ; (measure = "probability for search") [ probability [ 0 - utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
     (measure = "ethnicity-SES fraction") [ [ item (position (show-ses) sess) (item (position (show-ethnicity) ethnicities) popdata) ] of dist / [totalpop] of dist ]
     (measure = "average threshold") [ mean [map [x -> item 2 x] indivs] of dist ]
     (measure = "average SES") [ [average-ses / 2] of dist ]
@@ -239,15 +241,16 @@ to-report location-quotient [ethnicity]
 end
 
 ;; REPORTERS DECISIONS TO SEARCH / MOVE
-to-report probability [U] ; models a random binomial choice probability for U + eps > 0 (eps ~ logistic distribution)
-  report 1 / (1 + exp ( - beta * U))
-end
+;to-report probability [U] ; models a random binomial choice probability for U + eps > 0 (eps ~ logistic distribution)
+;  report 1 / (1 + exp ( - beta * U))
+;end
 ;; The following are for districts
 to-report utility [ethnicity-ind ses-ind thresh] ; the utility concept here is a linear in similarity fraction, shifted such that 0 divides favorable and non-favorable
   ; this utility is dichotomized with a certain degree of determinism (beta) by the function "probability"
   let ps-ethn ifelse-value (include-neighbor-districts) [percent-similar-ethnicity-neighborhood ethnicity-ind] [percent-similar-ethnicity ethnicity-ind]
   let ps-ses ifelse-value (include-neighbor-districts) [percent-similar-ses-neighborhood ses-ind] [percent-similar-ses ses-ind]
-  report (ps-ethn - thresh) + ses-weight * (ps-ses - thresh)
+;  report (ps-ethn - thresh) + ses-weight * (ps-ses - thresh)
+  report beta-eth * (ps-ethn - thresh) + beta-ses * (ps-ses - thresh)
 end
 to-report percent-similar-ethnicity [ethnicity-ind]  report (item ethnicity-ind ethnicity-counts) / totalpop end
 to-report percent-similar-ethnicity-neighborhood [ethnicity-ind]
@@ -374,21 +377,6 @@ NIL
 NIL
 1
 
-SLIDER
-350
-553
-474
-586
-beta
-beta
-0
-30
-20.0
-0.1
-1
-NIL
-HORIZONTAL
-
 SWITCH
 504
 40
@@ -396,7 +384,7 @@ SWITCH
 73
 show-labels
 show-labels
-1
+0
 1
 -1000
 
@@ -465,7 +453,7 @@ freq
 50.0
 true
 false
-"" "clear-plot\nset-plot-x-range 0 1"
+"" "clear-plot\nset-plot-x-range (min (list 0 map value-for-monitoring [self] of staticempiricals))  (max (list 1 map value-for-monitoring [self] of staticempiricals))"
 PENS
 "pen-1" 0.025 2 -16777216 true "" "histogram map value-for-monitoring [self] of staticempiricals"
 "pen-2" 0.025 1 -2674135 true "" "histogram map value-for-monitoring [self] of districts"
@@ -497,22 +485,7 @@ free-space
 free-space
 0
 0.4
-0.05
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-479
-553
-603
-586
-ses-weight
-ses-weight
-0
-5
-2.0
+0.06
 0.01
 1
 NIL
@@ -566,7 +539,7 @@ PLOT
 337
 1608
 498
-segregation
+segregation indices
 time
 segregation
 0.0
@@ -654,7 +627,7 @@ CHOOSER
 show-ethnicity
 show-ethnicity
 "WHITEB" "ASIAN" "BLACK" "OTHER"
-3
+1
 
 CHOOSER
 504
@@ -664,7 +637,7 @@ CHOOSER
 show-ses
 show-ses
 "LOW" "MID" "HIGH"
-0
+2
 
 CHOOSER
 347
@@ -673,7 +646,7 @@ CHOOSER
 180
 measure
 measure
-"--- ethnicty-base ---" "ethnicity fraction" "ethnicity dissimilarity" "ethnicity location quotient" "--- ses-based ---" "SES fraction" "--- ethnicity- and SES-based ---" "ethnicity-SES fraction" "utility (for threshold-mean)" "probability for search" "--- local segregation indices ---" "ethnic Simpson" "ethnic entropy" "excess ethnic Simpson" "loss ethnic entropy" "--- other measures ---" "population / maximal population" "average threshold" "average SES"
+"--- ethnicty-base ---" "ethnicity fraction" "ethnicity dissimilarity" "ethnicity location quotient" "--- ses-based ---" "SES fraction" "--- ethnicity- and SES-based ---" "ethnicity-SES fraction" "utility (for threshold-mean)" "--- local segregation indices ---" "ethnic Simpson" "ethnic entropy" "excess ethnic Simpson" "loss ethnic entropy" "--- other measures ---" "population / maximal population" "average threshold" "average SES"
 1
 
 SLIDER
@@ -790,7 +763,7 @@ PLOT
 498
 1608
 648
-Ethnicities
+dissimilarity of ethnicities
 time
 dissimilarity
 0.0
@@ -843,6 +816,36 @@ forced-moves
 0.05
 0.003
 0.001
+1
+NIL
+HORIZONTAL
+
+SLIDER
+350
+552
+467
+585
+beta-eth
+beta-eth
+0
+60
+60.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+474
+552
+591
+585
+beta-ses
+beta-ses
+0
+60
+0.0
+0.1
 1
 NIL
 HORIZONTAL
