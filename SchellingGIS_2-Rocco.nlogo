@@ -197,14 +197,12 @@ to-report percent-similar-ethnicity [ethnicity]
   report sum item (position ethnicity ethnicities) popdata / totalpop
 end
 
-
 to-report ses-counts
   report map [y -> sum map [x -> item y x] popdata] range length sess
 end
 
-
-to-report percent-similar-ses [sss]
-  report sum item (position sss sess) popdata / totalpop
+to-report percent-similar-ses [ses]
+  report item (position ses sess) ses-counts / totalpop
 end
 
 
