@@ -18,7 +18,7 @@ staticempiricals-own [ id popdata ethnicity-counts ses-counts totalpop maxpop se
 
 to setup
   clear-all
-  ask patches [set pcolor white]
+  ask patches [set pcolor 68]
   set townshp gis:load-dataset (word "shp_NetLogo/" town "/" town ".shp")
   gis:set-world-envelope (gis:envelope-union-of (gis:envelope-of townshp))
   let vars [ "WHTB_HG" "WHTB_MD" "WHTB_LW" "ASN_HGH" "ASIN_MD" "ASIN_LW" "BLCK_HG" "BLCK_MD" "BLCK_LW" "OTHRTH_H" "OTHRTH_M" "OTHRTH_L" ]
@@ -31,13 +31,15 @@ to setup
       set id gis:property-value x "LSOA11C"
       let pops map [y -> round ((gis:property-value x y) / scale-down-pop)] vars
       set popdata (list (reverse sublist pops 0 3) (reverse sublist pops 3 6) (reverse sublist pops 6 9) (reverse sublist pops 9 12))
-      setup-popdata-subcounts-maxpop-indivs
+      setup-indivs-popdata-subcounts
+      set maxpop round (totalpop / (1 - free-space))
+      set ses-maxpop map [y -> round (y / (1 - free-space))] ses-counts
       hatch-staticempiricals 1 [ set size 0 ]
     ]
   ]
   ask districts [ create-district-neighbor-links ]
   ask staticempiricals [ create-district-neighbor-links ]
-  set town-popdata count-town-popdata
+  set town-popdata matrix:to-row-list reduce matrix:plus [matrix:from-row-list popdata] of districts
   set town-ethnicity-counts count-ethnicities town-popdata
   set town-ses-counts count-sess town-popdata
   set town-totalpop count-totalpop town-popdata
@@ -60,18 +62,16 @@ to shuffle-population
     let towntotalfrac matrix:to-row-list matrix:map [x -> x / sum [totalpop] of districts] matrix:from-row-list town-popdata
     ask districts [ set popdata matrix:to-row-list matrix:map round (matrix:from-row-list towntotalfrac matrix:*  totalpop) ]
   ]
-  ask districts [ setup-popdata-subcounts-maxpop-indivs ]
+  ask districts [ setup-indivs-popdata-subcounts ]
   visualize
   clear-all-plots
   reset-ticks
 end
 
-to setup-popdata-subcounts-maxpop-indivs
+to setup-indivs-popdata-subcounts
   set ethnicity-counts count-ethnicities popdata
   set ses-counts count-sess popdata
   set totalpop count-totalpop popdata
-  set maxpop round (totalpop / (1 - free-space))
-  set ses-maxpop map [x -> round (x / (1 - free-space))] ses-counts
   ; The following produces list of list of length totalpop with each sub list representing one individual in the form [ethn-ind ses-ind thresh]
   set indivs reduce sentence map [z -> reduce sentence map [y -> n-values item y item z popdata [x -> (list z y random-beta-musigma threshold-mean threshold-sd)]] range length item z popdata] range length popdata
   set all-thresholds reduce sentence [map [x -> item 2 x] indivs] of districts
@@ -88,40 +88,33 @@ to go
     if random-float 1 < nummoves - floor (nummoves) [individual-decides]
   ]]
   visualize
-  if report-activities [print (word decisions-count " decisions, "
-                                    forced-moves-count " forced moves (" precision (100 * forced-moves-count / decisions-count) 1 "%), "
-                                    searches-count " searches (" precision (100 * searches-count / decisions-count) 1 "%), "
-                                    moves-count " voluntary moves (" precision (100 * moves-count / decisions-count) 1 "%) in  " timer " seconds")]
+  print (word decisions-count " decisions, "
+              forced-moves-count " forced moves (" precision (100 * forced-moves-count / decisions-count) 1 "%), "
+              searches-count " searches (" precision (100 * searches-count / decisions-count) 1 "%), "
+              moves-count " voluntary moves (" precision (100 * moves-count / decisions-count) 1 "%) in  " timer " seconds")
   tick
 end
 
-to individual-decides ; for random districts
-  ; select a "virtual" person in districtat random
-  if report-activities [set decisions-count decisions-count + 1]
+to individual-decides ; in a districts select a "virtual" person and let this decide to move
+  set decisions-count decisions-count + 1
   let indiv-ind random length indivs
   let indiv item indiv-ind indivs
   let ethn-ind item 0 indiv
-  let ethnicity (item ethn-ind ethnicities)
   let ses-ind item 1 indiv
-  let ses (item ses-ind sess)
   ifelse random-float 1 < forced-moves [
-    if report-activities [set forced-moves-count forced-moves-count + 1]
-    let option ifelse-value (moves-within-ses) [random-ses-option position ses sess] [random-option]
+    set forced-moves-count forced-moves-count + 1
+    let option ifelse-value (moves-within-ses) [random-ses-option ses-ind] [random-option]
     individual-moves option ethn-ind ses-ind indiv-ind indiv
   ] [
     let thresh item 2 indiv
     let U_home utility ethn-ind ses-ind thresh
-    ; probabilistic event: Does person wants to move? (based on absolute utility) can be switched off (that models that people always check one option)
-;    if random-float 1 < probability (- U_home) or not decide-search-first [
-    if U_home + random-gumbel < 0 or not decide-search-first [
-      if report-activities [set searches-count searches-count + 1]
-      let option ifelse-value (moves-within-ses) [random-ses-option position ses sess] [random-option]
+    if U_home < 0 or not decide-search-first [
+      set searches-count searches-count + 1
+      let option ifelse-value (moves-within-ses) [random-ses-option ses-ind] [random-option]
       let U_option [utility ethn-ind ses-ind thresh] of option
-      ; probabilistic event: Person decides to take the option or stay (based on relative utility)
-      let free ifelse-value (moves-within-ses) [[(item (position ses sess) ses-maxpop) - (item (position ses sess) ses-counts)] of option] [[maxpop - totalpop] of option]
-;      if (free > 0) and (random-float 1 < probability (U_option - U_home)) [
-      if (free > 0) and (U_option - U_home + random-logistic > 0) [
-        if report-activities [set moves-count moves-count + 1]
+      let free ifelse-value (moves-within-ses) [[(item ses-ind ses-maxpop) - (item ses-ind ses-counts)] of option] [[maxpop - totalpop] of option]
+      if (free > 0) and (U_option - U_home > 0) [
+        set moves-count moves-count + 1
         individual-moves option ethn-ind ses-ind indiv-ind indiv
       ]
     ]
@@ -144,11 +137,50 @@ to alter-popdata [ethn-ind ses-ind change] ; change should be 1 or -1
   set totalpop totalpop + change
 end
 
+;; REPORTERS DECISIONS TO SEARCH / MOVE
+to-report utility [ethn-ind ses-ind thresh] report (observable-utility ethn-ind ses-ind thresh) + random-gumbel end
+to-report observable-utility [ethn-ind ses-ind thresh] ; the utility concept here is a linear in similarity fraction, shifted such that 0 divides favorable and non-favorable
+  report (ifelse-value (other-ignores-ethn and ethn-ind = 3) [0] [beta-ethn * (percent-similar-ethnicity-neighborhood ethn-ind - thresh)]) +
+         beta-ses * (percent-similar-ses-neighborhood ses-ind - thresh)
+end
+to-report percent-similar-ethnicity-neighborhood [ethn-ind]
+  report (item ethn-ind ethnicity-counts + neighbor-weight * sum [item ethn-ind ethnicity-counts] of link-neighbors) /
+         (totalpop + neighbor-weight * sum [totalpop] of link-neighbors)
+end
+to-report percent-similar-ses-neighborhood [ses-ind]
+  report (item ses-ind ses-counts + neighbor-weight * sum [item ses-ind ses-counts] of link-neighbors) /
+         (totalpop + neighbor-weight * sum [totalpop] of link-neighbors)
+end
+
+;; GENERAL REPORTERS
+; For selection of "a random person"
+to-report random-district report one-of districts end ;!!! Three times faster than roulette wheel!
+to-report random-option report rnd:weighted-one-of districts [maxpop - totalpop] end
+to-report random-ses-option [ses-ind] report rnd:weighted-one-of districts [max list 0 (item ses-ind ses-maxpop - item ses-ind ses-counts)] end
+
+; For computations on popdata-type lists of lists
+to-report count-sess [popd] report map [y -> sum map [x -> item y x] popd] range length sess end
+to-report count-ethnicities [popd] report map sum popd end
+to-report count-totalpop [popd] report sum map sum popd end
+
+; General
+to-report normalize-list [x] report map [y -> y / sum x] x end
+to-report random-beta-musigma [m s]
+  ifelse (s > 0) [
+    let x random-gamma (alpha-musigma m s) 1
+    report ( x / ( x + random-gamma (beta-musigma m s) 1) )
+  ][ report m ]
+end
+to-report alpha-musigma [m s] report max list 0.001 (m * ((m * (1 - m)) / s ^ 2 - 1)) end
+to-report beta-musigma [m s] report max list 0.001 ((1 - m) * ((m * (1 - m)) / s ^ 2 - 1)) end
+to-report random-gumbel report (- ln (- ln random-float 1)) end
+
+
 ;; VISUALIZATION AND PRINT OUTPUT
 
 to visualize
   ask turtles [set size 0 set label ""]
-  if (measure != "ethnicity location quotient" and measure != "ethnicity dissimilarity") [set color-axis-max 1]
+  if (measure != "ethnicity location quotient" and measure != "ethnicity dissimilarity" and measure != "observable utility") [set color-axis-max 1]
   foreach gis:feature-list-of townshp [ x ->
     let dist ifelse-value (show-data = "empirical (static)")
       [one-of staticempiricals with [id = (gis:property-value x "LSOA11C")]]
@@ -160,6 +192,7 @@ to visualize
   ]
   ask links [set hidden? not show-links]
   ask patch 0 16 [set plabel-color black set plabel (word measure " " (ifelse-value (measure = "ethnicity fraction" or measure = "ethnic dissimilarity") [show-ethnicity]
+                                                                                    (measure = "ethnicity-SES fraction" or measure = "observable utility") [(word show-ethnicity " " show-ses)]
                                                                                     (measure = "SES fraction") [show-ses] [""]))]
   gis:set-drawing-color black
   gis:draw townshp 1
@@ -192,10 +225,10 @@ to print-town-data
   output-print (word "Town entropy: " precision town-ethnic-entropy 3)
   output-print (word "Mean local entropy: " precision (sum [totalpop * ethnic-entropy] of districts / sum [totalpop] of districts) 3)
   output-print (word "Loss local entropy: " precision (sum [totalpop * (town-ethnic-entropy - ethnic-entropy)] of districts / sum [totalpop] of districts) 3)
-  output-print (word "Dissimilarity WHITEB: " precision (sum [totalpop * dissimilarity "WHITEB"] of districts / sum [totalpop] of districts) 3)
-  output-print (word "Dissimilarity ASIAN: " precision (sum [totalpop * dissimilarity "ASIAN"] of districts / sum [totalpop] of districts) 3)
-  output-print (word "Dissimilarity BLACK: " precision (sum [totalpop * dissimilarity "BLACK"] of districts / sum [totalpop] of districts) 3)
-  output-print (word "Dissimilarity OTHER: " precision (sum [totalpop * dissimilarity "OTHER"] of districts / sum [totalpop] of districts) 3)
+  output-print (word "Dissimilarity WHITEB: " precision (sum [totalpop * dissimilarity 0] of districts / sum [totalpop] of districts) 3)
+  output-print (word "Dissimilarity ASIAN: " precision (sum [totalpop * dissimilarity 1] of districts / sum [totalpop] of districts) 3)
+  output-print (word "Dissimilarity BLACK: " precision (sum [totalpop * dissimilarity 2] of districts / sum [totalpop] of districts) 3)
+  output-print (word "Dissimilarity OTHER: " precision (sum [totalpop * dissimilarity 3] of districts / sum [totalpop] of districts) 3)
 end
 
 ;; REPORTER FOR MONITORING
@@ -210,10 +243,9 @@ to-report value-for-monitoring [dist]
     (measure = "loss ethnic entropy") [ town-ethnic-entropy - [ethnic-entropy] of dist]
     (measure = "population / maximal population") [ [totalpop / maxpop] of dist ]
     (measure = "ethnicity fraction") [ [item (position (show-ethnicity) ethnicities) ethnicity-counts] of dist / [totalpop] of dist ]
-    (measure = "ethnicity dissimilarity") [ [dissimilarity show-ethnicity] of dist ]
-    (measure = "ethnicity location quotient") [ [location-quotient show-ethnicity] of dist ]
-    (measure = "utility (for threshold-mean)") [ [utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
-   ; (measure = "probability for search") [ probability [ 0 - utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
+    (measure = "ethnicity dissimilarity") [ [dissimilarity (position (show-ethnicity) ethnicities)] of dist ]
+    (measure = "ethnicity location quotient") [ [location-quotient (position (show-ethnicity) ethnicities)] of dist ]
+    (measure = "observable utility") [ [observable-utility (position (show-ethnicity) ethnicities) (position (show-ses) sess) threshold-mean ] of dist ]
     (measure = "ethnicity-SES fraction") [ [ item (position (show-ses) sess) (item (position (show-ethnicity) ethnicities) popdata) ] of dist / [totalpop] of dist ]
     (measure = "average threshold") [ mean [map [x -> item 2 x] indivs] of dist ]
     (measure = "average SES") [ [average-ses / 2] of dist ]
@@ -229,75 +261,11 @@ to-report ses-entropy report entropy normalize-list ses-counts end
 to-report town-ethnic-simpson report simpson normalize-list count-ethnicities town-popdata end
 to-report town-ethnic-entropy report entropy normalize-list count-ethnicities town-popdata end
 to-report average-ses report (sum (map [[ x y ] -> x * y] ses-counts range length sess)) / totalpop end
-to-report dissimilarity [ethnicity]
-  let N_ei item (position ethnicity ethnicities) ethnicity-counts
-  let N_e  item (position ethnicity ethnicities) town-ethnicity-counts
-  report abs (N_ei / totalpop - N_e / town-totalpop) / (2 * N_e / town-totalpop * (1 - N_e / town-totalpop))
+to-report dissimilarity [ethn-ind]
+  report abs (item ethn-ind ethnicity-counts / totalpop - item ethn-ind town-ethnicity-counts / town-totalpop) /
+         (2 * item ethn-ind town-ethnicity-counts / town-totalpop * (1 - item ethn-ind town-ethnicity-counts / town-totalpop))
 end
-to-report location-quotient [ethnicity]
-  let S_ei item (position ethnicity ethnicities) ethnicity-counts
-  let S_e  item (position ethnicity ethnicities) town-ethnicity-counts
-  report (S_ei / S_e) / (totalpop / town-totalpop)
-end
-
-;; REPORTERS DECISIONS TO SEARCH / MOVE
-;to-report probability [U] ; models a random binomial choice probability for U + eps > 0 (eps ~ logistic distribution)
-;  report 1 / (1 + exp ( - beta * U))
-;end
-;; The following are for districts
-to-report utility [ethnicity-ind ses-ind thresh] ; the utility concept here is a linear in similarity fraction, shifted such that 0 divides favorable and non-favorable
-  ; this utility is dichotomized with a certain degree of determinism (beta) by the function "probability"
-  let ps-ethn ifelse-value (include-neighbor-districts) [percent-similar-ethnicity-neighborhood ethnicity-ind] [percent-similar-ethnicity ethnicity-ind]
-  let ps-ses ifelse-value (include-neighbor-districts) [percent-similar-ses-neighborhood ses-ind] [percent-similar-ses ses-ind]
-;  report (ps-ethn - thresh) + ses-weight * (ps-ses - thresh)
-  report beta-eth * (ps-ethn - thresh) + beta-ses * (ps-ses - thresh)
-end
-to-report percent-similar-ethnicity [ethnicity-ind]  report (item ethnicity-ind ethnicity-counts) / totalpop end
-to-report percent-similar-ethnicity-neighborhood [ethnicity-ind]
-  report (sum [item ethnicity-ind ethnicity-counts] of link-neighbors) / (sum [totalpop] of link-neighbors)
-end
-to-report percent-similar-ses [ses-ind]  report (item ses-ind ses-counts) / totalpop end
-to-report percent-similar-ses-neighborhood [ses-ind]
-  report (sum [item ses-ind ses-counts] of link-neighbors) / (sum [totalpop] of link-neighbors)
-end
-
-;; GENERAL REPORTERS
-; For selection of "a random person"
-to-report random-district report one-of districts end ;!!! Three times faster than roulette wheel!
-to-report random-option report rnd:weighted-one-of districts [maxpop - totalpop] end
-to-report random-ses-option [ses-ind] report rnd:weighted-one-of districts [item ses-ind ses-maxpop - item ses-ind ses-counts] end
-
-; For computations on popdata-type lists of lists
-to-report count-town-popdata report matrix:to-row-list reduce matrix:plus [matrix:from-row-list popdata] of districts end
-to-report count-sess [popd] report map [y -> sum map [x -> item y x] popd] range length sess end
-to-report count-ethnicities [popd] report map sum popd end
-to-report count-totalpop [popd] report sum map sum popd end
-
-; general
-to-report normalize-list [x] report map [y -> y / sum x] x end
-to-report random-beta-musigma [m s]
-  ifelse (s > 0) [
-    let x random-gamma (alpha-musigma m s) 1
-    report ( x / ( x + random-gamma (beta-musigma m s) 1) )
-  ][
-    report m
-  ]
-end
-to-report alpha-musigma [m s] report max list 0.001 (m * ((m * (1 - m)) / s ^ 2 - 1)) end
-to-report beta-musigma [m s] report max list 0.001 ((1 - m) * ((m * (1 - m)) / s ^ 2 - 1)) end
-
-
-;; BACKUP not used
-
-to-report random-logistic
-  let x random-float 1
-  report ln (x / (1 - x))
-end
-
-to-report random-gumbel
-  let x random-float 1
-  report (- ln (- ln x))
-end
+to-report location-quotient [ethn-ind] report (item ethn-ind ethnicity-counts / item ethn-ind town-ethnicity-counts) / (totalpop / town-totalpop) end
 @#$#@#$#@
 GRAPHICS-WINDOW
 666
@@ -329,7 +297,7 @@ ticks
 BUTTON
 197
 75
-331
+334
 109
 Load town
 setup\n
@@ -362,9 +330,9 @@ NIL
 
 BUTTON
 523
-481
+464
 648
-514
+497
 NIL
 go
 T
@@ -389,10 +357,10 @@ show-labels
 -1000
 
 BUTTON
-348
-401
-498
-435
+349
+392
+499
+426
 Shuffle Population
 shuffle-population
 NIL
@@ -408,7 +376,7 @@ NIL
 SLIDER
 196
 39
-330
+334
 72
 scale-down-pop
 scale-down-pop
@@ -473,19 +441,19 @@ OUTPUT
 26
 112
 336
-639
+646
 12
 
 SLIDER
-348
-265
-496
-298
+349
+257
+497
+290
 free-space
 free-space
 0
 0.4
-0.06
+0.05
 0.01
 1
 NIL
@@ -493,9 +461,9 @@ HORIZONTAL
 
 SWITCH
 350
-481
+464
 520
-514
+497
 decide-search-first
 decide-search-first
 0
@@ -504,22 +472,11 @@ decide-search-first
 
 SWITCH
 500
-265
+257
 656
-298
+290
 moves-within-ses
 moves-within-ses
-0
-1
--1000
-
-SWITCH
-350
-517
-564
-550
-include-neighbor-districts
-include-neighbor-districts
 0
 1
 -1000
@@ -565,25 +522,25 @@ show-links
 -1000
 
 SLIDER
-348
-364
-498
-397
+349
+356
+499
+389
 threshold-sd
 threshold-sd
 0
 0.3
-0.16
+0.11
 0.01
 1
 NIL
 HORIZONTAL
 
 PLOT
-501
-316
-661
-436
+502
+308
+662
+428
 individuals
 threshold
 freq
@@ -627,7 +584,7 @@ CHOOSER
 show-ethnicity
 show-ethnicity
 "WHITEB" "ASIAN" "BLACK" "OTHER"
-1
+2
 
 CHOOSER
 504
@@ -637,7 +594,7 @@ CHOOSER
 show-ses
 show-ses
 "LOW" "MID" "HIGH"
-2
+0
 
 CHOOSER
 347
@@ -646,14 +603,14 @@ CHOOSER
 180
 measure
 measure
-"--- ethnicty-base ---" "ethnicity fraction" "ethnicity dissimilarity" "ethnicity location quotient" "--- ses-based ---" "SES fraction" "--- ethnicity- and SES-based ---" "ethnicity-SES fraction" "utility (for threshold-mean)" "--- local segregation indices ---" "ethnic Simpson" "ethnic entropy" "excess ethnic Simpson" "loss ethnic entropy" "--- other measures ---" "population / maximal population" "average threshold" "average SES"
-1
+"--- ethnicty-base ---" "ethnicity fraction" "ethnicity dissimilarity" "ethnicity location quotient" "--- ses-based ---" "SES fraction" "--- ethnicity- and SES-based ---" "ethnicity-SES fraction" "observable utility" "--- local segregation indices ---" "ethnic Simpson" "ethnic entropy" "excess ethnic Simpson" "loss ethnic entropy" "--- other measures ---" "population / maximal population" "average threshold" "average SES"
+8
 
 SLIDER
-348
-331
-498
-364
+349
+322
+499
+355
 threshold-mean
 threshold-mean
 0
@@ -667,7 +624,7 @@ HORIZONTAL
 TEXTBOX
 31
 12
-324
+292
 32
 1. Load Town from GIS Data 
 18
@@ -685,20 +642,20 @@ TEXTBOX
 1
 
 TEXTBOX
-349
-238
-613
-258
+350
+230
+614
+250
 3. Setup Simulation
 18
 114.0
 1
 
 TEXTBOX
-348
-306
-498
-330
+349
+298
+499
+322
 Individual thresholds from Beta-Distribution
 9
 0.0
@@ -706,9 +663,9 @@ Individual thresholds from Beta-Distribution
 
 TEXTBOX
 352
-454
+437
 539
-476
+459
 4. Run Simulation
 18
 114.0
@@ -720,7 +677,7 @@ MONITOR
 1744
 571
 Dissimilarity ASIAN
-sum [totalpop * dissimilarity \"ASIAN\"] of districts / sum [totalpop] of districts
+sum [totalpop * dissimilarity 1] of districts / sum [totalpop] of districts
 3
 1
 11
@@ -731,7 +688,7 @@ MONITOR
 1744
 526
 Dissimilarity WHITEB
-sum [totalpop * dissimilarity \"WHITEB\"] of districts / sum [totalpop] of districts
+sum [totalpop * dissimilarity 0] of districts / sum [totalpop] of districts
 3
 1
 11
@@ -742,7 +699,7 @@ MONITOR
 1744
 616
 Dissimilarity BLACK
-sum [totalpop * dissimilarity \"BLACK\"] of districts / sum [totalpop] of districts
+sum [totalpop * dissimilarity 2] of districts / sum [totalpop] of districts
 3
 1
 11
@@ -753,7 +710,7 @@ MONITOR
 1744
 661
 Dissilarity OTHER
-sum [totalpop * dissimilarity \"OTHER\"] of districts / sum [totalpop] of districts
+sum [totalpop * dissimilarity 3] of districts / sum [totalpop] of districts
 3
 1
 11
@@ -774,10 +731,10 @@ true
 true
 "" ""
 PENS
-"WHITEB" 1.0 0 -2064490 true "" "plot sum [totalpop * dissimilarity \"WHITEB\"] of districts / sum [totalpop] of districts"
-"ASIAN" 1.0 0 -3844592 true "" "plot sum [totalpop * dissimilarity \"ASIAN\"] of districts / sum [totalpop] of districts"
-"BLACK" 1.0 0 -16777216 true "" "plot sum [totalpop * dissimilarity \"BLACK\"] of districts / sum [totalpop] of districts"
-"OTHER" 1.0 0 -14439633 true "" "plot sum [totalpop * dissimilarity \"OTHER\"] of districts / sum [totalpop] of districts"
+"WHITEB" 1.0 0 -1664597 true "" "plot sum [totalpop * dissimilarity 0] of districts / sum [totalpop] of districts"
+"ASIAN" 1.0 0 -3844592 true "" "plot sum [totalpop * dissimilarity 1] of districts / sum [totalpop] of districts"
+"BLACK" 1.0 0 -16777216 true "" "plot sum [totalpop * dissimilarity 2] of districts / sum [totalpop] of districts"
+"OTHER" 1.0 0 -14439633 true "" "plot sum [totalpop * dissimilarity 3] of districts / sum [totalpop] of districts"
 
 SLIDER
 347
@@ -788,28 +745,17 @@ color-axis-max
 color-axis-max
 0.3
 10
-1.0
+7.3
 0.1
 1
 NIL
 HORIZONTAL
 
-SWITCH
-504
-612
-653
-645
-report-activities
-report-activities
-0
-1
--1000
-
 SLIDER
 350
-612
+609
 496
-645
+642
 forced-moves
 forced-moves
 0
@@ -822,14 +768,14 @@ HORIZONTAL
 
 SLIDER
 350
-552
+535
 467
-585
-beta-eth
-beta-eth
+568
+beta-ethn
+beta-ethn
 0
 60
-60.0
+8.0
 0.1
 1
 NIL
@@ -837,18 +783,44 @@ HORIZONTAL
 
 SLIDER
 474
-552
+535
 591
-585
+568
 beta-ses
 beta-ses
 0
 60
-0.0
+12.0
 0.1
 1
 NIL
 HORIZONTAL
+
+SLIDER
+350
+499
+523
+532
+neighbor-weight
+neighbor-weight
+0
+1
+0.26
+0.01
+1
+NIL
+HORIZONTAL
+
+SWITCH
+458
+572
+653
+605
+other-ignores-ethn
+other-ignores-ethn
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?

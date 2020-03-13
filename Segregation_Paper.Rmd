@@ -9,7 +9,7 @@ author:
   - Selamawit SERKA
 abstract: 
 output: 
-  pdf_document:
+  bookdown::pdf_document2:
     number_sections: true 
 editor_options: 
   chunk_output_type: console
@@ -36,9 +36,54 @@ The paper concludes with an overview of the key mechanisms associated to neighbo
 ```{r LoadUKData}
 # source("R/write_SHP_UK_for_Netlogo.R")
 load("R/data")
+lsoa_ethn_ses <- long_districts %>% group_by(lsoa11cd) %>% mutate(fraction = count/sum(count))
+lsoa_ethn <- lsoa_ethn_ses %>% 
+  group_by(lsoa11cd, town, all, all1674valid, Ethnicity) %>% 
+  summarize(fraction = sum(count) / max(all1674valid), count = sum(count))
+lsoa_ses <- lsoa_ethn_ses %>% 
+  group_by(lsoa11cd, town, all, all1674valid, SES) %>%  
+  summarize(fraction = sum(count) / max(all1674valid), count = sum(count))
+lsoa <- lsoa_ethn_ses %>% mutate(SESnum = if_else(SES=="low", 0, if_else(SES=="mid",1,2))) %>% 
+  group_by(lsoa11cd, town, all, all1674valid) %>% 
+  summarize(average_ses = sum(count * SESnum)/sum(count)) %>% 
+  group_by(town) %>% 
+  mutate(fraction_lsoa = all1674valid/sum(all1674valid)) %>% group_by()
+towns_ethn_ses <- lsoa_ethn_ses %>% group_by(town, Ethnicity, SES) %>% 
+  summarize(count = sum(count)) %>% group_by(town) %>% mutate(fraction = count / sum(count)) %>% group_by()
+towns_ethn <- towns_ethn_ses %>%  group_by(town, Ethnicity) %>% 
+  summarize(count = sum(count)) %>% group_by(town) %>% mutate(fraction = count / sum(count)) %>% group_by()
+towns_ses <- towns_ethn_ses %>%  group_by(town, SES) %>% 
+  summarize(count = sum(count)) %>% group_by(town) %>% mutate(fraction = count / sum(count)) %>% group_by()
+towns <- towns_ethn_ses %>% mutate(SESnum = if_else(SES=="low", 0, if_else(SES=="mid",1,2))) %>% 
+  group_by(town) %>% 
+  summarize(average_ses = sum(count * SESnum)/sum(count), count = sum(count))
+# Dissimilarity, Location Quotient
+lsoa_ethn <- lsoa_ethn %>% left_join(select(towns_ethn, town, Ethnicity, fraction_ethnicity_town = fraction),
+                        by = c("town", "Ethnicity")) %>% 
+  group_by(lsoa11cd) %>% mutate(Dissimilarity = abs(fraction - fraction_ethnicity_town) / 
+                                  (2*fraction_ethnicity_town*(1-fraction_ethnicity_town)),
+                                Location_Quotient = fraction/fraction_ethnicity_town) 
+towns_ethn <- lsoa_ethn %>% left_join(select(lsoa,town,lsoa11cd,fraction_lsoa), c("lsoa11cd", "town")) %>%
+  group_by(town,Ethnicity) %>% 
+  summarize(Dissimilarity_Index = sum(fraction_lsoa * Dissimilarity)) %>% 
+  right_join(towns_ethn, c("town", "Ethnicity")) %>% group_by()
+towns <- towns_ethn %>% group_by(town) %>% 
+  summarize(Simpson_town = sum(fraction^2), 
+            Entropy_town = -1/log(4)*sum(fraction*log(fraction))) %>% 
+  right_join(towns, by = "town")
+towns <- lsoa_ethn %>% left_join(rename(towns, count_town=count), by = "town") %>% 
+  left_join(select(lsoa,town,lsoa11cd,fraction_lsoa), c("lsoa11cd", "town")) %>% 
+  group_by(lsoa11cd, town, fraction_lsoa, Simpson_town, Entropy_town) %>%
+  summarize(Simpson = sum(fraction^2), 
+            Entropy = -1/log(4)*sum(fraction*
+                                      if_else(fraction == 0, 0, log(fraction)))) %>% 
+  mutate(Excess_Simpson = Simpson - Simpson_town, Loss_Entropy = Entropy_town - Entropy) %>% 
+  group_by(town) %>% summarize(Avg_Simpson = sum(fraction_lsoa*Simpson), 
+                               Avg_Excess_Simpson = sum(fraction_lsoa*Excess_Simpson), 
+                               Avg_Entropy = sum(fraction_lsoa*Entropy),
+                               Avg_Loss_Entropy = sum(fraction_lsoa*Loss_Entropy)) %>% 
+  right_join(towns, by = "town")
 ```
-
-
 
 We use census data from ..SOURCE.. from the years 2011 and 2001. 
 We use LSOAs (Lower Layer Super Output Areas) of towns in England. 
@@ -145,36 +190,9 @@ Mechanisms for segregation form sociological theories.
 Distributions of fractions of ethnicities in selected cities
 
 ```{r Descriptives}
-ethn_data <- long_districts %>%
-  group_by(lsoa11cd, town, all, all1674valid, Ethnicity) %>% summarize(count = sum(count)) %>%
-  group_by(town) %>% mutate(count_town = sum(count)) %>% 
-  group_by(town, lsoa11cd) %>% mutate(count_lsoa = sum(count), fraction_lsoa = count_lsoa/count_town) %>% 
-  group_by(town, Ethnicity) %>% mutate(count_ethnicity_town = sum(count), 
-                                       fraction_ethnicity_town = count_ethnicity_town / count_town) %>% 
-  group_by(lsoa11cd) %>% mutate(fraction_ethnicity = count / count_lsoa,
-                                Dissimilarity = abs(fraction_ethnicity -
-                                              fraction_ethnicity_town)/(2*fraction_ethnicity_town*(1-fraction_ethnicity_town)),
-                                Location_Quotient = fraction_ethnicity/fraction_ethnicity_town)
-ethn_dissimilarity_towns <- ethn_data %>% group_by(town,Ethnicity) %>% 
-  summarize(Dissimilarity = sum(fraction_lsoa * Dissimilarity))
-ethn_segregation_town <- ethn_data %>% group_by(town, Ethnicity, count_ethnicity_town, fraction_ethnicity_town) %>%
-  summarize() %>% group_by(town) %>% 
-  summarize(Simpson_town = sum(fraction_ethnicity_town^2), 
-                            Entropy_town = -1/log(4)*sum(fraction_ethnicity_town*log(fraction_ethnicity_town)))
-ethn_segregation <- ethn_data %>% left_join(ethn_segregation_town, by = "town") %>% 
-  group_by(lsoa11cd, town, fraction_lsoa, Simpson_town, Entropy_town) %>%
-  summarize(Simpson = sum(fraction_ethnicity^2), 
-            Entropy = -1/log(4)*sum(fraction_ethnicity*if_else(fraction_ethnicity == 0, 0, log(fraction_ethnicity)))) %>% 
-  mutate(Excess_Simpson = Simpson - Simpson_town, Loss_Entropy = Entropy_town - Entropy)
-ethn_segregation %>% group_by(town) %>% summarize(Avg_Simpson = sum(fraction_lsoa*Simpson), 
-                                                  Avg_Excess_Simpson = sum(fraction_lsoa*Excess_Simpson), 
-                                                  Avg_Entropy = sum(fraction_lsoa*Entropy),
-                                                  Avg_Loss_Entropy = sum(fraction_lsoa*Loss_Entropy)) %>% 
-  right_join(ethn_segregation_town, by = "town") -> ethn_segregation_town
-
-ethn_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
-  group_by(town,Ethnicity) %>% mutate(Rank = rank(fraction_ethnicity)) %>% 
-  ggplot(aes(Rank,fraction_ethnicity, color=Ethnicity)) + geom_point(size=0.2) + 
+lsoa_ethn %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
+  group_by(town,Ethnicity) %>% mutate(Rank = rank(fraction)) %>% 
+  ggplot(aes(Rank,fraction, color=Ethnicity)) + geom_point(size=0.2) + 
   facet_grid(Ethnicity ~ town, scales = "free_x") +
   scale_color_manual(values = c("darkgoldenrod3","black","blue","pink1") ) +
   ylab("Faction") +
@@ -184,26 +202,23 @@ ethn_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester"))
 Highest dissimilarity index values: 
 
 ```{r}
- ethn_dissimilarity_towns %>% group_by() %>% 
-  arrange(desc(Dissimilarity)) %>% head(10) %>% kable
+ towns_ethn %>% group_by() %>% 
+  arrange(desc(Dissimilarity_Index)) %>% head(10) %>% kable
 ```
 
 Highest average loss entropy, average excess Simpson index values, average entropy, average Simpson index:
 
 ```{r}
- ethn_segregation_town %>% select(town, Avg_Loss_Entropy, Avg_Excess_Simpson, Avg_Entropy, Avg_Simpson) %>% 
-  group_by() %>% 
+ towns %>%  select(town, Avg_Loss_Entropy, Avg_Excess_Simpson, average_ses, count) %>% 
   arrange(desc(Avg_Loss_Entropy)) %>% head(10) %>% kable
 ```
 
 Distribution of SES in selected towns.
 
 ```{r }
-ses_data <- long_districts %>% group_by(lsoa11cd, town, all, all1674valid, SES) %>% 
-  summarize(count = sum(count)) %>% mutate(Fraction = count / all1674valid)
-ses_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
-  group_by(town,SES) %>% mutate(Rank = rank(Fraction)) %>% 
-  ggplot(aes(Rank,Fraction, color=SES)) + geom_point(size=0.2) + 
+lsoa_ses %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) %>% 
+  group_by(town,SES) %>% mutate(Rank = rank(fraction)) %>% 
+  ggplot(aes(Rank,fraction, color=SES)) + geom_point(size=0.2) + 
   facet_grid(SES ~ town, scales = "free_x") +
   scale_color_manual(values = c("red","green","blue") ) +
   theme(legend.position = "bottom")
@@ -213,6 +228,111 @@ ses_data %>% filter(town %in% c("Bradford","Leicester","Bristol","Manchester")) 
 ## Spatial Regression
 
 ## Agent-based dynamical model
+
+We built an agent-based model of residential relocation within a town.
+
+The agents and space in the model are specified based on the demographic and geographic data of one town. Each agent in the model is specified by ethnicity, socio-economic status, and an individual threshold $\theta$ value between zero and one. Each agent is located in one of the LSOA of the town on the geographic map. The threshold is the essential individual parameter for the computation of the utility an individual obtains from the residence in a particular LSOA.
+
+We model the relocation of an agent as a two-step process. First, the agent assesses the utility of their current residence. Further on, we assume that the agent may be forced to leave. In this case, or when the utility assessed as too low, the agent searches for another option in the town. Otherwise, no relocation happens. Second, if the agent has decided or is forced to search an option, the agent assesses if this option is better than the current place of residence. If this is the case, or in the case of a forced move, the agent move to the LSOA where the option is located.
+
+The utility an agent with ethnicity $X$, socio-economic status $Y$, and threshold $\theta$ obtains from residence in LSOA $i$ is defined as 
+$$ U_{X,Y,\theta}(i) = \underbrace{\beta_\text{Eth} (P_i^X - \theta) + \beta_\text{SES} (P_i^Y - \theta)}_{\text{observable utility}} + \varepsilon$$
+where $P_i^X$ and $P_i^Y$ are the fractions of the population with the same ethnicity and, respectively, the same socio-economic status as the agent.^[In the following we will define the fractions $P_i^X$ and $P_i^Y$ by taking into account also the population of the geographically neighboring LSOA.] Factors relevant for the decisions which are not modeled are considered in the stochastic term $\varepsilon$ which we assume to be a random number from a Gumbel distribution (also known as generalized extreme value distribution type-I)^[SOME RATIONALE FOR THIS]. The parameters $\beta_\text{Eth}$ and $\beta_\text{SES}$ specifiy the importance of ethnic similarity and similarity of socio-economic status in the neighborhood. The larger both parameters the lower the impact of the other factors represented by $\varepsilon$. 
+The agent decides to search an option when $U_{X,Y,\theta}(i) > 0$. When a selected option is in LSOA $j$, the agent relocates when $U_{X,Y,\theta}(j) > U_{X,Y,\theta}(i)$.
+
+In the particular our case of England's census data it is reasonable to treat the ethnic group OTHER differently, because these collects a large variety of all ethnicities which all have small numbers and may not as much perceive themselves to be of the same group as the other three groups WHITEB, ASIAN, and BLACK. An implementation of this difference would be to set $\beta_\text{Ethn} = 0$ when $X=$OTHER. 
+
+In the following, we outline the initialization of geography and demography, the shuffling of the population to be most equal, and the flow of a simulation run. The model is implemented in NetLogo. The interface is shown in Figure \@ref(fig:NetLogoInterface).
+
+```{r NetLogoInterface, fig.cap="NetLogo Interface."}
+include_graphics("figs/Screenshot from 2020-03-11 18-56-05.png")
+```
+
+
+### Initialization
+
+Initialization happens by clicking "Load town". This loads the LSOA shapes (in ESRI format collected in a folder) of the selected `town` using NetLogo's GIS extension. The data includes the population data and can be visually explored using the switches, choosers and sliders in the section "2. Explore Data". Aggregated empirical data on the town level is shown in the output area in the section "1. Load Town from GIS Data". For the purpose of simulation speed all population counts can be scaled down by the factor `scale-down-pop`. 
+
+For each LSOA an agent of the breed `district` is created located at the center of the LSOA. Further on, links are created between districts representing shapes which share a border. 
+Each district object stores the counts for all twelve types of individuals (four ethnicities times three socio-economic status) in a variable. Further on, in each district a list of lists is created where each sublist represents one of the individuals in the district. Each sublist has three elements: The indication of the individual's ethnicity, the indication of the individual's SES, and a random number from a Beta-distribution drawn upon initialization representing the individual's theshold $\theta$. The Beta-distribution is parameterized by the two parameters `threshold-mean` and `threshold-sd` (in the section "3. Setup Simulation") representing the mean and the standard deviation of the thresholds in the population. 
+Finally, for each district we set maximal numbers of individuals for each SES group. These numbers are set such that a is a fraction of `free-space` of these maximal number are not occupied initially. Thus, we assume that in each district there are certain fractions of houses, flats, or rooms suitable and affordable for each of the three SES groups. With `free-space` = 0.05, 5% of these places are initially free. 
+
+Compared to a typical model in NetLogo our implementation does not represent each individual as an agent but as an item in a list stored by a district. 
+  
+
+
+### Shuffling of population
+
+On clicking "Shuffle Population" the population is redistributed such that the ethnicities are maximally equally distributed. That means, in each district, the four ethnicity counts of the population in each SES group is replaced by numbers summing up to the same total but with proportions equalling the proportions of the total ethnicity counts in this SES group in the whole town. That way, the total number of the individuals in the twelve ethnicity-SES groups remains the same for the whole town and the total number of indiviuals per SES group remains the same in each LSOA but the counts of the ethnicities in each districts are in the same proportion as in the whole town. As a consequence, location quotients and dissimilarity for all ethnicities are zero and local Simpson and entropy coincide with the measure on the town level. 
+
+The shuffling is essential for our main modeling goal: Exploring to what degree certain parameter configurations let the empirical segregation patterns emerge from shuffled population, and, if yes, to what degree these parameter configurations are universal across towns. 
+
+
+### Simulation
+
+The simulation runs over several ticks which represents a unit time step. 
+In each tick, we simulate several individual decisions to search for new options and consequently if they relocate to these residences. The number of these individual decision is chosen such that it coincides on average with the total population of the town. That means, every individual makes such a decision every tick. Note, that obviously these decisions can be repeated reconfirmations that the current residence is fine. 
+
+The selection of an individual is modeled  by first selecting a district at random and second on of the individuals from the list of list stored in that district. From the selected sublist we know the ethnicity, the SES and the threshold of the individual.^[LSOAs differ in size. Therefore, we adjusted for that by selecting and individual from districts with below average population only with a certain probability. In the case of an above average district, we do more than one individual decision with probabilities such that the expected number of decisions fits to the the relative size of the district.]
+
+Once an individual is selected the process is as follows: First, the individual may be forced to move with a (small) probability of `forced-moves` (e.g. 0.003). In this case, the individual selects another place to move. This place is randomly selected from all available places suitable for the SES of the individual in the whole town.^[To that end, we compute for each district the difference between the population count and the maximal population for the respective SES group. Then we select one district with probabilities proportional to that number, a procedure sometimes called roulette wheel selection.] When the individual is not forced to move, the individual assesses their utility with the current residence using the equation above. This includes the computation of the fractions of population with the same ethnicity and the same SES in the neighborhood and the draw of a random number from a standard Gumbel distribution. The parameter `neighbor-weight` weights the population of all neighboring districts for the counts used to compute the fractions in the neighborhood (e.g. 0.25). When the utility obtained from the current residence is negative, the individual starts to search. In the model that means, the individual selects a potential new place with the same procedure. Naturally, this place lies most likely in another district. The individual then assesses the utility for the new place in the same way as it assessesed the utility for the current residence (but with a new independent random draw from a Gumbel distribution). Finally, the individual moves to the new place when the utility from the new place is higher than the utility form the current place. Technically, then the counts in the old and new districts are updated and the sublist for the list of individuals is removed in the old district and appended to the list in the new district. In that way, the individual carries also their the individual threshold to the new district. 
+
+The model provides three switches (binary paramters) which makes the simulation procedures different in one particular detail: (1) when `moves-within-ses` is set false then the individuals are not confined to moves to free spaces with their SES group but to any free place in the town; (2) when `decide-search-first` is set false an individual which is not forced to move will skip the first decision step and directly searches a potential new place and compares this utility to the utility of the current residence; and (3) when `other-ignores-ethn` is set false the ethnic group OTHER is treated in the same way as all other ethnic groups. 
+
+
+### ABM exploration strategies
+
+The general procedure of the exploration is to
+
+  1. Decide for a (reasonable) parameter setting (in particular `free-space`, `threshold-mean`, `threshold-sd`, `neighbor-weight`, `beta-ethn`, `beta-ses`, and `forced-moves`). 
+  2. Load a town
+  3. Shuffle the population
+  4. Run the simulation for long time until the town reaches a (meta-)stable state, e.g. until certain macroscopic segregation measures remain more or less stable. 
+  
+The simulation otucome can then be matched against real data, e.g.
+ 
+  * How good is the fit of the emegring distribution of the fractions of ethnicities over all LSOA with the original unshuffled population.
+  * How good is the fit with respect to other measures, e.g. segregation measures or fraction of SES and ethnicty-SES groups. 
+  * How realisitic are the total number of forced moves, searches, and voluntary moves per tick. 
+
+All the comparisons with empirical data can be done with respect to a transition state or in a meta-stable state. Goodness of fit is not fully formalized yet but goes qualitatively for now. 
+
+The exploration steps can then be repeated for other parameter consellations and other towns. 
+
+The first focus was to find parameter settings such that the distribution of the fraction of the ASIAN population over LSOA is reproduced similarily for many towns. 
+
+The following constellation delivered a surprisingly good result:
+`free-space` = 0.05, `threshold-mean`=0.3 , `threshold-sd`=0.12, `neighbor-weight`=0.25, `beta-ethn`=8, `beta-ses`=12, and `forced-moves`=0.003. 
+
+
+```{r, fig.cap="Birmingham Asian Empricial Data"}
+include_graphics("figs/Birmingham_Asian_Emp Screenshot from 2020-03-12 23-40-28.png")
+```
+
+```{r, fig.cap="Birmingham Asian Meta-stable State Simulation"}
+include_graphics("figs/Birmingham_Asian_Sim Screenshot from 2020-03-12 23-40-50.png")
+```
+
+```{r, fig.cap="Manchester Asian Meta-stable State Simulation"}
+include_graphics("figs/Manchester_Asian_Sim Screenshot from 2020-03-12 22-40-23.png")
+```
+
+```{r, fig.cap="Manchester Black Meta-stable State Simulation"}
+include_graphics("figs/Manchester_Black_Sim Screenshot from 2020-03-12 22-40-58.png")
+```
+
+```{r, fig.cap="Southampton Asian Meta-stable State Simulation"}
+include_graphics("figs/Southampton_Asian_sim Screenshot from 2020-03-12 22-52-32.png")
+```
+
+```{r, fig.cap="Southampton Black Meta-stable State Simulation"}
+include_graphics("figs/Southampton_Black_Sim Screenshot from 2020-03-12 22-53-00.png")
+```
+
+
+
+  
+
 
 
 
